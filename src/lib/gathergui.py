@@ -117,10 +117,10 @@ a boot menu if several operating systems are available on the same computer.")
     self.LabelContextHelp.set_text(_("About BootSetup."))
 
   def on_bootloader_type_enter_notify_event(self, widget, data=None):
-    self.LabelContextHelp.set_markup(_("Here you can choose between LiLo or Grub2 bootloader.\n\
-Both will boot your Linux and eventually Windows.\n\
-LiLo is the old way but still works pretty good. A good choice if you have a simple setup.\n\
-Grub2 is a full-featured bootloader more robust (does not rely on blocklists)."))
+    self.LabelContextHelp.set_markup(_("Here you can choose between LiLo or the Grub2 bootloader.\n\
+Both will boot your Linux and (if applicable) Windows.\n\
+LiLo is the old way but still works pretty well. A good choice if you have a simple setup.\n\
+Grub2 is a full-featured bootloader and more robust (does not rely on blocklists)."))
 
   def on_combobox_mbr_enter_notify_event(self, widget, data=None):
     self.LabelContextHelp.set_markup(_("Select the device that will contain your bootloader.\n\
@@ -280,7 +280,7 @@ click on this button to install your bootloader."))
     if ' ' in new_text:
       self._bootsetup.error_dialog(_("\nAn Operating System label should not contain spaces.\n\nPlease verify and correct.\n"))
     elif len(new_text) > max_chars:
-      self._bootsetup.error_dialog(_("\nAn Operating System label should not hold more than {max} characters.\n\nPlease verify and correct.\n".format(max=max_chars)))
+      self._bootsetup.error_dialog(_("\nAn Operating System label should not be more than {max} characters long.\n\nPlease verify and correct.\n".format(max=max_chars)))
     else:
       model, it = self.BootPartitionTreeview.get_selection().get_selected()
       found = False
