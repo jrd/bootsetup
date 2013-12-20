@@ -449,11 +449,11 @@ click on this button to install your bootloader.")
   def _showLabelError(self, errorType, editLabel):
     """Show a label error if the errorType is 'space' or 'max' and return True, else return False."""
     if errorType == 'space':
-      self._errorDialog(_("\nAn Operating System label should not contain spaces.\n\nPlease verify and correct.\n"))
+      self._errorDialog(_("\nAn Operating System label should not contain spaces.\n\nPlease check and correct.\n"))
       editLabel.sensitive_attr = ('error', 'focus_error')
       return True
     elif errorType == 'max':
-      self._errorDialog(_("\nAn Operating System label should not be more than {max} characters long.\n\nPlease verify and correct.\n".format(max = self._liloMaxChars)))
+      self._errorDialog(_("\nAn Operating System label should not be more than {max} characters long.\n\nPlease check and correct.\n".format(max = self._liloMaxChars)))
       editLabel.sensitive_attr = ('error', 'focus_error')
       return True
     elif errorType == 'pass':

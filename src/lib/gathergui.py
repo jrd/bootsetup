@@ -278,9 +278,9 @@ click on this button to install your bootloader."))
     row_number = int(row_number)
     max_chars = 15
     if ' ' in new_text:
-      self._bootsetup.error_dialog(_("\nAn Operating System label should not contain spaces.\n\nPlease verify and correct.\n"))
+      self._bootsetup.error_dialog(_("\nAn Operating System label should not contain spaces.\n\nPlease check and correct.\n"))
     elif len(new_text) > max_chars:
-      self._bootsetup.error_dialog(_("\nAn Operating System label should not be more than {max} characters long.\n\nPlease verify and correct.\n".format(max=max_chars)))
+      self._bootsetup.error_dialog(_("\nAn Operating System label should not be more than {max} characters long.\n\nPlease check and correct.\n".format(max=max_chars)))
     else:
       model, it = self.BootPartitionTreeview.get_selection().get_selected()
       found = False
@@ -291,7 +291,7 @@ click on this button to install your bootloader."))
           found = True
           break
       if found:
-        self._bootsetup.error_dialog(_("You have used the same label for different Operating Systems. Please verify and correct.\n"))
+        self._bootsetup.error_dialog(_("You have used the same label for different Operating Systems. Please check and correct.\n"))
       else:
         model.set_value(it, 3, new_text)
         if new_text == _("Set..."):
