@@ -12,6 +12,7 @@ __license__ = 'GPL2+'
 import sys
 import re
 import codecs
+import os
 import salix_livetools_library as sltl
 
 class Config:
@@ -84,13 +85,23 @@ class Config:
         # os-prober doesn't want to probe for /
         slashDevice = sltl.execGetOutput(r"readlink -f $(df / | tail -n 1 | cut -d' ' -f1)")[0]
         slashFS = sltl.getFsType(re.sub(r'^/dev/', '', slashDevice))
-        self.__debug("Root device {0} ({1})".format(slashDevice, slashFS))
-        self.__debug("/usr/lib/os-probes/mounted/90linux-distro " + slashDevice + " / " + slashFS)
-        slashDistro = sltl.execGetOutput(['/usr/lib/os-probes/mounted/90linux-distro', slashDevice, '/', slashFS])
-        if slashDistro:
-          probes = slashDistro
+        osProbesPath = None
+        for p in ("/usr/lib64/os-probes/mounted/90linux-distro", "/usr/lib/os-probes/mounted/90linux-distro"):
+          if os.path.exists(p):
+            osProbesPath = p
+        if osProbesPath:
+          self.__debug("Root device {0} ({1})".format(slashDevice, slashFS))
+          self.__debug(osProbesPath + " " + slashDevice + " / " + slashFS)
+          slashDistro = sltl.execGetOutput([osProbesPath, slashDevice, '/', slashFS])
+          if slashDistro:
+            probes = slashDistro
       self.__debug("Probes: " + unicode(probes))
-      probes.extend(sltl.execGetOutput('/usr/sbin/os-prober', shell = False))
+      osProberPath = None
+      for p in ('/usr/bin/os-prober', '/usr/sbin/os-prober'):
+        if os.path.exists(p):
+          osProberPath = p
+      if osProberPath:
+        probes.extend(sltl.execGetOutput(osProberPath, shell = False))
       self.__debug("Probes: " + unicode(probes))
       for probe in probes:
         probe = unicode(probe).strip() # ensure clean line
@@ -101,6 +112,8 @@ class Config:
         probe_os = probe_info[1]
         probe_label = probe_info[2]
         probe_boottype = probe_info[3]
+        if probe_boottype == 'efi': # skip efi entry
+          continue
         try:
           probe_fstype = [p[1] for p in self.partitions if p[0] == probe_dev][0]
         except IndexError:
