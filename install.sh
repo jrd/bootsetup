@@ -14,7 +14,6 @@ os.chdir('src')
 from bootsetup import __version__
 print __version__,
 ")
-install -D -m 755 xsu $DESTDIR/usr/bin/xsu
 install -D -m 755 build/bootsetup $DESTDIR/usr/sbin/bootsetup
 install -D -m 644 build/bootsetup.desktop $DESTDIR/usr/share/applications/bootsetup.desktop
 for size in 24 64 128; do
