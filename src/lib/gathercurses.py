@@ -277,7 +277,6 @@ a boot menu if several operating systems are available on the same computer.")
       for l in (listDev, listFS, listType, listLabel, listActionUp, listActionDown):
         l[0].sensitive_attr = 'strong'
       self._labelPerDevice = {}
-      self.cfg.boot_partitions.append(['dev', 'fs', '', 'type', 'label'])
       for p in self.cfg.boot_partitions:
         dev = p[0]
         fs = p[1]
