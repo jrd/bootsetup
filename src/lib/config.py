@@ -89,7 +89,12 @@ class Config:
         for p in ("/usr/lib64/os-probes/mounted/90linux-distro", "/usr/lib/os-probes/mounted/90linux-distro"):
           if os.path.exists(p):
             osProbesPath = p
+            break
         if osProbesPath:
+          try:
+            os.remove("/var/lib/os-prober/labels") # ensure there is no previous labels
+          except:
+            pass
           self.__debug("Root device {0} ({1})".format(slashDevice, slashFS))
           self.__debug(osProbesPath + " " + slashDevice + " / " + slashFS)
           slashDistro = sltl.execGetOutput([osProbesPath, slashDevice, '/', slashFS])
@@ -100,6 +105,7 @@ class Config:
       for p in ('/usr/bin/os-prober', '/usr/sbin/os-prober'):
         if os.path.exists(p):
           osProberPath = p
+          break
       if osProberPath:
         probes.extend(sltl.execGetOutput(osProberPath, shell = False))
       self.__debug("Probes: " + unicode(probes))

@@ -4,6 +4,7 @@
 from __future__ import unicode_literals
 
 import urwid_more as urwidm
+import time
 palette = [
     ('body', 'light gray', 'black'),
     ('header', 'white', 'dark blue'),
@@ -20,8 +21,8 @@ palette = [
     ('focus_icon', 'yellow', 'black'),
     ('focus_radio', 'yellow', 'black'),
     ('focus_combo', 'black', 'dark green'),
-    ('combobody', 'light gray', 'dark blue'),
-    ('combofocus', 'black', 'brown'),
+    ('comboitem', 'light gray', 'dark blue'),
+    ('comboitem_focus', 'black', 'brown'),
     ('error', 'white', 'dark red'),
     ('focus_error', 'light red', 'black'),
     ('important', 'yellow', 'black', 'bold'),
@@ -36,12 +37,12 @@ def handleKeys(key):
     if key in ('q', 'f10'):
       raise urwidm.ExitMainLoop()
 def focusGain(widget, context):
-  print "\nFocus Gain on help", context, widget
-  raw_input('')
+  print("\nFocus Gain on help {0} ({1})".format(context, widget))
+  time.sleep(1)
   return True
 def focusLost(widget, context):
-  print "\nFocus Lost on help", context, widget
-  raw_input('')
+  print("\nFocus Lost on help {0} ({1})".format(context, widget))
+  time.sleep(1)
   return True
 def connectFocus(widget, context):
   urwidm.connect_signal(widget, 'focusgain', focusGain, context)
@@ -80,9 +81,9 @@ connectFocus(gf, 'gf')
 
 btn5 = urwidm.ButtonMore('btn5')
 connectFocus(btn5, 'btn5')
-btn6 = urwidm.ButtonMore('btn6')
-connectFocus(btn6, 'btn6')
-pile = urwidm.PileMore([btn5, btn6], btn6)
+cb = urwidm.ComboBox('combo', ['item1', 'item2'])
+connectFocus(cb, 'cb')
+pile = urwidm.PileMore([btn5, cb], cb)
 connectFocus(pile, 'pile')
 cols2 = urwidm.ColumnsMore([urwidm.TextMore('text2'), pile])
 connectFocus(cols2, 'cols2')
