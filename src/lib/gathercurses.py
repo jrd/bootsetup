@@ -61,6 +61,7 @@ class GatherCurses:
   _custom_lilo = False
   _grub2_cfg = False
   _liloMaxChars = 15
+  _editors = ['vim', 'nano']
 
   def __init__(self, bootsetup, version, bootloader = None, target_partition = None, is_test = False, use_test_data = False):
     self._bootsetup = bootsetup
@@ -523,9 +524,9 @@ click on this button to install your bootloader.")
       self._create_lilo_config()
     if os.path.exists(lilocfg):
       launched = False
-      for editor in ('vim', 'nano'):
+      for editor in self._editors:
         try:
-          sltl.execCall([editor, lilocfg], shell=False, env=None)
+          sltl.execCall([editor, lilocfg], shell=True, env=None)
           launched = True
           break
         except:
@@ -591,9 +592,9 @@ click on this button to install your bootloader.")
       doumount = True
     grub2cfg = os.path.join(mp, "etc/default/grub")
     launched = False
-    for editor in ('vim', 'nano'):
+    for editor in self._editors:
       try:
-        sltl.execCall([editor, grub2cfg], shell=False, env=None)
+        sltl.execCall([editor, grub2cfg], shell=True, env=None)
         launched = True
         break
       except:

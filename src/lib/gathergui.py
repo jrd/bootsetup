@@ -30,6 +30,7 @@ class GatherGui:
   _grub2 = None
   _editing = False
   _custom_lilo = False
+  _editors = ['leafpad', 'gedit', 'geany', 'kate', 'xterm -e nano']
 
   def __init__(self, bootsetup, version, bootloader = None, target_partition = None, is_test = False, use_test_data = False):
     self._bootsetup = bootsetup
@@ -379,9 +380,17 @@ click on this button to install your bootloader."))
       self.update_buttons()
       self._create_lilo_config()
     if os.path.exists(lilocfg):
-      try:
-        sltl.execCall(['xdg-open', lilocfg], shell=False, env=None)
-      except:
+      launched = False
+      for editor in self._editors:
+        try:
+          cmd = editor.split(' ') + [lilocfg]
+          sltl.execCall(cmd, shell=True, env=None)
+          launched = True
+          break
+        except:
+          pass
+      if not launched:
+        self._custom_lilo = False
         self._bootsetup.error_dialog(_("Sorry, BootSetup is unable to find a suitable text editor in your system. You will not be able to manually modify the LiLo configuration.\n"))
 
   def on_lilo_undo_button_clicked(self, widget, data=None):
@@ -405,9 +414,16 @@ click on this button to install your bootloader."))
       doumount = True
     grub2cfg = os.path.join(mp, "etc/default/grub")
     if os.path.exists(grub2cfg):
-      try:
-        sltl.execCall(['xdg-open', grub2cfg], shell=False, env=None)
-      except:
+      launched = False
+      for editor in self._editors:
+        try:
+          cmd = editor.split(' ') + [grub2cfg]
+          sltl.execCall(cmd, shell=True, env=None)
+          launched = True
+          break
+        except:
+          pass
+      if not launched:
         self._bootsetup.error_dialog(_("Sorry, BootSetup is unable to find a suitable text editor in your system. You will not be able to manually modify the Grub2 default configuration.\n"))
     if doumount:
       sltl.umountDevice(mp)
