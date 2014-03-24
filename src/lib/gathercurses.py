@@ -24,7 +24,7 @@ class GatherCurses:
   """
   UI in curses/urwid to gather information about the configuration to setup.
   """
-  
+
   # Other potential color schemes can be found at:
   # http://excess.org/urwid/wiki/RecommendedPalette
   _palette = [
@@ -77,7 +77,7 @@ boot partitions:{boot_partitions}
     self.ui = urwidm.raw_display.Screen()
     self.ui.set_mouse_tracking()
     self._palette.extend(bootsetup._palette)
-  
+
   def run(self):
     self._createMainView()
     self._createHelpView()
@@ -91,7 +91,7 @@ boot partitions:{boot_partitions}
       self._radioGrub2.set_state(True)
       self._mainView.body.set_focus(self._mbrDeviceSectionPosition)
     self._loop.run()
-  
+
   def _infoDialog(self, message):
     self._bootsetup.info_dialog(message, parent = self._loop.widget)
 
@@ -101,15 +101,16 @@ boot partitions:{boot_partitions}
   def _updateScreen(self):
     if self._loop and self._loop.screen._started:
       self._loop.draw_screen()
-    
+
   def _onHelpFocusGain(self, widget, context):
-    print "help context", context, widget
-    raw_input("")
     self._helpCtx = context
     return True
   def _onHelpFocusLost(self, widget):
     self._helpCtx = ''
     return True
+  def _installHelpContext(self, widget, context):
+    urwidm.connect_signal(widget, 'focusgain', self._onHelpFocusGain, context)
+    urwidm.connect_signal(widget, 'focuslost', self._onHelpFocusLost)
 
   def _createComboBox(self, label, elements):
     l = [urwidm.TextMultiValues(el) if isinstance(el, list) else el for el in elements]
@@ -117,7 +118,7 @@ boot partitions:{boot_partitions}
     comboBox.set_combo_attrs('combobody', 'combofocus')
     comboBox.cbox.sensitive_attr = ('focusable', 'focus_combo')
     return comboBox
-  
+
   def _createComboBoxEdit(self, label, elements):
     l = [urwidm.TextMultiValues(el) if isinstance(el, list) else el for el in elements]
     comboBox = urwidm.ComboBoxEdit(label, l)
@@ -150,14 +151,15 @@ boot partitions:{boot_partitions}
 +---------------------------------------+
 | Bootloader: (×) LiLo (_) Grub2        |
 | MBR Device:  |_____________ ↓|        | <== ComboBox thanks to wicd
-| Grub2 files: |_____________ ↓|        | --|
-|           <Edit config>               | --+- <== Grub2 only
-| +-----------------------------------+ | --+
+| Grub2 files: |_____________ ↓|        | --
+|           <Edit config>               | --}- <== Grub2 only
+|                                       |
+| +-----------------------------------+ | --
 | |Dev.|FS  |Type |Label      |Actions| |   |
 | |sda1|ext4|Salix|Salix14____|<↑><↓> | |   |
 | |sda5|xfs |Arch |ArchLinux__|<↑><↓> | |   +- <== LiLo only
 | +-----------------------------------+ |   |
-| <Edit config>    <Undo custom config> | --+
+| <Edit config>    <Undo custom config> | --
 |            <Install>                  |
 +=======================================+
 | H: Help, A: About, Q: Quit            | <== Action keyboard thanks to wicd
@@ -191,16 +193,14 @@ a boot menu if several operating systems are available on the same computer.")
     self._radioLiLo = self._createRadioButton(radioGroupBootloader, "LiLo", state = False, on_state_change = self._onLiLoChange)
     self._radioGrub2 = self._createRadioButton(radioGroupBootloader, "Grub2", state = False, on_state_change = self._onGrub2Change)
     bootloaderTypeSection = urwidm.ColumnsMore([lblBootloader, self._radioLiLo, self._radioGrub2], focus_column = 1)
-    urwidm.connect_signal(bootloaderTypeSection, 'focusgain', self._onHelpFocusGain, 'type')
-    urwidm.connect_signal(bootloaderTypeSection, 'focuslost', self._onHelpFocusLost)
+    self._installHelpContext(bootloaderTypeSection, 'type')
     # mbr device section
     mbrDeviceSection = self._createMbrDeviceSectionView()
     # bootloader section
     self._bootloaderSection = urwidm.WidgetPlaceholderMore(urwidm.Text(""))
     # install section
     btnInstall = self._createButton(_("_Install bootloader").replace("_", ""), on_press = self._onInstall)
-    urwidm.connect_signal(btnInstall, 'focusgain', self._onHelpFocusGain, 'install')
-    urwidm.connect_signal(btnInstall, 'focuslost', self._onHelpFocusLost)
+    self._installHelpContext(btnInstall, 'install')
     installSection = self._createCenterButtonsWidget([btnInstall])
     # body
     bodyList = [urwidm.Divider(), txtIntro, urwidm.Divider('─', bottom = 1), bootloaderTypeSection, mbrDeviceSection, urwidm.Divider(), self._bootloaderSection, urwidm.Divider('─', top = 1, bottom = 1), installSection]
@@ -210,7 +210,7 @@ a boot menu if several operating systems are available on the same computer.")
     frame = urwidm.FrameMore(body, header, footer, focus_part = 'body')
     frame.attr = 'body'
     self._mainView = frame
-  
+
   def _createHelpView(self):
     bodyPile = urwidm.PileMore([urwidm.Divider(), urwidm.TextMore("Help")])
     bodyPile.attr = 'body'
@@ -260,8 +260,7 @@ a boot menu if several operating systems are available on the same computer.")
   def _createMbrDeviceSectionView(self):
     comboBox = self._createComboBoxEdit(_("Install bootloader on:"), self.cfg.disks)
     urwidm.connect_signal(comboBox, 'change', self._onMBRChange)
-    urwidm.connect_signal(comboBox, 'focusgain', self._onHelpFocusGain, 'mbr')
-    urwidm.connect_signal(comboBox, 'focuslost', self._onHelpFocusLost)
+    self._installHelpContext(comboBox, 'mbr')
     return comboBox
 
   def _createBootloaderSectionView(self):
@@ -273,10 +272,12 @@ a boot menu if several operating systems are available on the same computer.")
       listFS = [urwidm.TextMore(listFSTitle)]
       listType = [urwidm.TextMore(_("Operating system"))]
       listLabel = [urwidm.TextMore(listLabelTitle)]
-      listAction = [urwidm.TextMore("")]
-      for l in (listDev, listFS, listType, listLabel, listAction):
+      listActionUp = [urwidm.TextMore("")]
+      listActionDown = [urwidm.TextMore("")]
+      for l in (listDev, listFS, listType, listLabel, listActionUp, listActionDown):
         l[0].sensitive_attr = 'strong'
       self._labelPerDevice = {}
+      self.cfg.boot_partitions.append(['dev', 'fs', '', 'type', 'label'])
       for p in self.cfg.boot_partitions:
         dev = p[0]
         fs = p[1]
@@ -288,32 +289,32 @@ a boot menu if several operating systems are available on the same computer.")
         self._labelPerDevice[dev] = label
         editLabel = self._createEdit(edit_text = label, wrap = urwidm.CLIP)
         urwidm.connect_signal(editLabel, 'change', self._onLabelChange, dev)
-        urwidm.connect_signal(editLabel, 'focuslost', self._onLabelFocusLost, dev)
         urwidm.connect_signal(editLabel, 'focusgain', self._onHelpFocusGain, 'lilotable')
-        urwidm.connect_signal(editLabel, 'focuslost', self._onHelpFocusLost)
+        urwidm.connect_signal(editLabel, 'focuslost', self._onLabelFocusLost, dev)
         listLabel.append(editLabel)
         btnUp = self._createButton("↑", on_press = self._moveLineUp, user_data = p[0])
+        self._installHelpContext(btnUp, 'liloup')
+        listActionUp.append(btnUp)
         btnDown = self._createButton("↓", on_press = self._moveLineDown, user_data = p[0])
-        urwidm.connect_signal(btnUp, 'focusgain', self._onHelpFocusGain, 'liloup')
-        urwidm.connect_signal(btnUp, 'focuslost', self._onHelpFocusLost)
-        urwidm.connect_signal(btnDown, 'focusgain', self._onHelpFocusGain, 'lilodown')
-        urwidm.connect_signal(btnDown, 'focuslost', self._onHelpFocusLost)
-        listAction.append(urwidm.GridFlowMore([btnUp, btnDown], cell_width = 5, h_sep = 1, v_sep = 1, align = "center"))
+        self._installHelpContext(btnDown, 'lilodown')
+        listActionDown.append(btnDown)
       colDev = urwidm.PileMore(listDev)
       colFS = urwidm.PileMore(listFS)
       colType = urwidm.PileMore(listType)
       colLabel = urwidm.PileMore(listLabel)
-      colAction = urwidm.PileMore(listAction)
-      self._liloTable = urwidm.ColumnsMore([('fixed', max(6, len(listDevTitle)), colDev), ('fixed', max(6, len(listFSTitle)), colFS), colType, ('fixed', max(self._liloMaxChars + 1, len(listLabelTitle)), colLabel), ('fixed', 11, colAction)], dividechars = 1)
+      colActionUp = urwidm.PileMore(listActionUp)
+      colActionDown = urwidm.PileMore(listActionDown)
+      urwidm.connect_signal(colLabel, 'focuslost', self._onLiloColumnFocusLost, [colLabel, colActionUp, colActionDown])
+      urwidm.connect_signal(colActionUp, 'focuslost', self._onLiloColumnFocusLost, [colLabel, colActionUp, colActionDown])
+      urwidm.connect_signal(colActionDown, 'focuslost', self._onLiloColumnFocusLost, [colLabel, colActionUp, colActionDown])
+      self._liloTable = urwidm.ColumnsMore([('fixed', max(6, len(listDevTitle)), colDev), ('fixed', max(6, len(listFSTitle)), colFS), colType, ('fixed', max(self._liloMaxChars + 1, len(listLabelTitle)), colLabel), ('fixed', 5, colActionUp), ('fixed', 5, colActionDown)], dividechars = 1)
       self._liloTableLines = urwidm.LineBoxMore(self._liloTable)
       self._liloTableLines.sensitive_attr = "strong"
       self._liloTableLines.unsensitive_attr = "unfocusable"
       self._liloBtnEdit = self._createButton(_("_Edit configuration").replace("_", ""), on_press = self._editLiLoConf)
-      urwidm.connect_signal(self._liloBtnEdit, 'focusgain', self._onHelpFocusGain, 'liloedit')
-      urwidm.connect_signal(self._liloBtnEdit, 'focuslost', self._onHelpFocusLost)
+      self._installHelpContext(self._liloBtnEdit, 'liloedit')
       self._liloBtnCancel = self._createButton(_("_Undo configuration").replace("_", ""), on_press = self._cancelLiLoConf)
-      urwidm.connect_signal(self._liloBtnCancel, 'focusgain', self._onHelpFocusGain, 'lilocancel')
-      urwidm.connect_signal(self._liloBtnCancel, 'focuslost', self._onHelpFocusLost)
+      self._installHelpContext(self._liloBtnCancel, 'lilocancel')
       self._liloButtons = self._createCenterButtonsWidget([self._liloBtnEdit, self._liloBtnCancel])
       pile = urwidm.PileMore([self._liloTableLines, self._liloButtons])
       self._updateLiLoButtons()
@@ -321,16 +322,19 @@ a boot menu if several operating systems are available on the same computer.")
     elif self.cfg.cur_bootloader == 'grub2':
       comboBox = self._createComboBox(_("Install Grub2 files on:"), self.cfg.partitions)
       urwidm.connect_signal(comboBox, 'change', self._onGrub2FilesChange)
-      urwidm.connect_signal(comboBox, 'focusgain', self._onHelpFocusGain, 'partition')
-      urwidm.connect_signal(comboBox, 'focuslost', self._onHelpFocusLost)
+      self._installHelpContext(comboBox, 'partition')
       self._grub2BtnEdit = self._createButton(_("_Edit configuration").replace("_", ""), on_press = self._editGrub2Conf)
-      urwidm.connect_signal(self._grub2BtnEdit, 'focusgain', self._onHelpFocusGain, 'grub2edit')
-      urwidm.connect_signal(self._grub2BtnEdit, 'focuslost', self._onHelpFocusLost)
+      self._installHelpContext(self._grub2BtnEdit, 'grub2edit')
       pile = urwidm.PileMore([comboBox, self._createCenterButtonsWidget([self._grub2BtnEdit])])
       self._onGrub2FilesChange(comboBox, comboBox.selected_item[0], None)
       return pile
     else:
       return urwidm.Text("")
+  def _onLiloColumnFocusLost(self, widget, columnWidgets):
+    pos = widget.get_focus_pos()
+    for cw in columnWidgets:
+      cw.focus_item = cw.widget_list[pos] # set focus item directly without using set_focus method to prevent FG/FL events
+    return True
 
   def _changeBootloaderSection(self):
     self._bootloaderSection.original_widget = self._createBootloaderSectionView()
@@ -538,7 +542,7 @@ click on this button to install your bootloader.")
       os.remove(lilocfg)
     self._custom_lilo = False
     self._updateLiLoButtons()
- 
+
   def _set_sensitive_rec(self, w, state):
     w.sensitive = state
     if hasattr(w, "widget_list"):
@@ -577,7 +581,7 @@ click on this button to install your bootloader.")
       self._grub2_conf = False
     self._grub2BtnEdit.sensitive = self._grub2_conf
     self._updateScreen()
-  
+
   def _editGrub2Conf(self, button):
     partition = os.path.join("/dev", self.cfg.cur_boot_partition)
     if sltl.isMounted(partition):

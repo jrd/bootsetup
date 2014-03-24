@@ -34,7 +34,7 @@ class BootSetup:
     self._isTest = isTest
     self._useTestData = useTestData
     print "BootSetup v{ver}".format(ver = version)
-  
+
   @abc.abstractmethod
   def run_setup(self):
     """
@@ -87,7 +87,8 @@ def die(s, exit = 1):
     sys.exit(exit)
 
 if __name__ == '__main__':
-  os.chdir(os.path.dirname(__file__))
+  if os.path.dirname(__file__):
+    os.chdir(os.path.dirname(__file__))
   is_graphic = bool(os.environ.get('DISPLAY'))
   is_test = False
   use_test_data = False
@@ -121,7 +122,7 @@ if __name__ == '__main__':
           target_partition = arg
         else:
           die(_("Unrecognized parameter '{0}'.").format(arg))
-  if not bootloader or bootloader not in ['lilo', 'grub2', '_']:
+  if bootloader not in ('lilo', 'grub2', '_', None):
     die(_("bootloader parameter should be lilo, grub2 or '_', given {0}.").format(bootloader))
   if bootloader == '_':
     bootloader = None

@@ -13,9 +13,9 @@ import os
 import sys
 import gettext
 import re
+import urwid_more as urwidm
 from gathercurses import *
 from bootsetup import *
-import urwid_more as urwidm
 
 class BootSetupCurses(BootSetup):
   
