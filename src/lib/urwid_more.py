@@ -17,17 +17,6 @@ from urwid.util import is_mouse_press as urwid_is_mouse_press
 from urwid.util import is_mouse_event as urwid_is_mouse_event
 import gettext
 import re
-
-import traceback
-import time
-import pprint
-def st(instance = None):
-  loc = locals()
-  stack = traceback.format_stack()
-  with open('urwid.log', 'a') as f:
-    f.write('{0}: {1}'.format(time.asctime(), ''.join(stack)))
-    f.write('instance: {0}\n'.format(type(instance)))
-    f.write('locals: {0}\n---\n\n'.format(pprint.pformat(loc)))
 try:
   _
 except NameError:
@@ -95,7 +84,6 @@ class FocusEventWidget(Widget):
     ret &= self._emit_focuslost()
     return ret
   def gain_focus(self):
-    st(self)
     ret = self._can_gain_focus_rec()
     if ret:
       ret = self._emit_focusgain_rec()
@@ -103,7 +91,6 @@ class FocusEventWidget(Widget):
       self._has_focus = True
     return ret
   def loose_focus(self):
-    st(self)
     ret = self._can_loose_focus()
     if ret:
       ret = self._emit_focuslost_rec()
