@@ -16,8 +16,8 @@ import urwidm
 from gathercurses import *
 from bootsetup import *
 
+
 class BootSetupCurses(BootSetup):
-  
   gc = None
   _palette = [
       ('important', 'yellow', 'black', 'bold'),
@@ -33,7 +33,7 @@ class BootSetupCurses(BootSetup):
     self.gc = GatherCurses(self, self._version, self._bootloader, self._targetPartition, self._isTest, self._useTestData)
     self.gc.run()
 
-  def _show_ui_dialog(self, dialog, parent = None):
+  def _show_ui_dialog(self, dialog, parent=None):
     if not parent:
       parent = urwidm.Filler(urwidm.Divider(), 'top')
     uiToStop = False
@@ -49,13 +49,13 @@ class BootSetupCurses(BootSetup):
     if uiToStop:
       ui.stop()
 
-  def info_dialog(self, message, title = None, parent = None):
+  def info_dialog(self, message, title=None, parent=None):
     if not title:
       title = _("INFO")
     dialog = urwidm.TextDialog(('info', unicode(message)), 10, 60, ('important', unicode(title)))
     self._show_ui_dialog(dialog, parent)
 
-  def error_dialog(self, message, title = None, parent = None):
+  def error_dialog(self, message, title=None, parent=None):
     if not title:
       title = "/!\ " + _("ERROR")
     dialog = urwidm.TextDialog(('error', unicode(message)), 10, 60, ('important', unicode(title)))

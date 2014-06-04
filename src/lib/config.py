@@ -15,6 +15,7 @@ import codecs
 import os
 import libsalt as slt
 
+
 class Config:
   """
   Configuration for BootSetup
@@ -28,7 +29,7 @@ class Config:
   is_test = False
   use_test_data = False
   is_live = False
-  
+
   def __init__(self, bootloader, target_partition, is_test, use_test_data):
     self.cur_bootloader = bootloader
     self.cur_boot_partition = target_partition and re.sub(r'/dev/', '', target_partition) or ''
@@ -54,20 +55,20 @@ class Config:
       self.is_live = slt.isSaLTLiveEnv()
     if self.use_test_data:
       self.disks = [
-            ['sda', 'msdos', 'WDC100 (100GB)'],
-            ['sdb', 'gpt', 'SGT350 (350GB)']
-          ]
+        ['sda', 'msdos', 'WDC100 (100GB)'],
+        ['sdb', 'gpt', 'SGT350 (350GB)']
+      ]
       self.partitions = [
-            ['sda1', 'ntfs', 'WinVista (20GB)'],
-            ['sda5', 'ext2', 'Salix (80GB)'],
-            ['sdb1', 'fat32', 'Data (300GB)'],
-            ['sdb2', 'ext4', 'Debian (50GB)']
-          ]
+        ['sda1', 'ntfs', 'WinVista (20GB)'],
+        ['sda5', 'ext2', 'Salix (80GB)'],
+        ['sdb1', 'fat32', 'Data (300GB)'],
+        ['sdb2', 'ext4', 'Debian (50GB)']
+      ]
       self.boot_partitions = [
-            ['sda5', 'ext2', 'linux', 'Salix', 'Salix 14.0'],
-            ['sda1', 'ntfs', 'chain', 'Windows', 'Vista'],
-            ['sdb2', 'ext4', 'linux', 'Debian', 'Debian 7']
-          ]
+        ['sda5', 'ext2', 'linux', 'Salix', 'Salix 14.0'],
+        ['sda1', 'ntfs', 'chain', 'Windows', 'Vista'],
+        ['sdb2', 'ext4', 'linux', 'Debian', 'Debian 7']
+      ]
       if not self.cur_boot_partition:
         self.cut_boot_partition = 'sda5'
     else:
@@ -92,7 +93,7 @@ class Config:
             break
         if osProbesPath:
           try:
-            os.remove("/var/lib/os-prober/labels") # ensure there is no previous labels
+            os.remove("/var/lib/os-prober/labels")  # ensure there is no previous labels
           except:
             pass
           self.__debug("Root device {0} ({1})".format(slashDevice, slashFS))
@@ -107,10 +108,10 @@ class Config:
           osProberPath = p
           break
       if osProberPath:
-        probes.extend(slt.execGetOutput(osProberPath, shell = False))
+        probes.extend(slt.execGetOutput(osProberPath, shell=False))
       self.__debug("Probes: " + unicode(probes))
       for probe in probes:
-        probe = unicode(probe).strip() # ensure clean line
+        probe = unicode(probe).strip()  # ensure clean line
         if probe[0] != '/':
           continue
         probe_info = probe.split(':')
@@ -118,7 +119,7 @@ class Config:
         probe_os = probe_info[1]
         probe_label = probe_info[2]
         probe_boottype = probe_info[3]
-        if probe_boottype == 'efi': # skip efi entry
+        if probe_boottype == 'efi':  # skip efi entry
           continue
         try:
           probe_fstype = [p[1] for p in self.partitions if p[0] == probe_dev][0]

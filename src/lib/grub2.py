@@ -15,18 +15,18 @@ import sys
 import codecs
 import libsalt as slt
 
+
 class Grub2:
-  
   isTest = False
   _prefix = None
   _tmp = None
   _bootInBootMounted = False
   _procInBootMounted = False
-  
+
   def __init__(self, isTest):
     self.isTest = isTest
     self._prefix = "bootsetup.grub2-"
-    self._tmp = tempfile.mkdtemp(prefix = self._prefix)
+    self._tmp = tempfile.mkdtemp(prefix=self._prefix)
     slt.mounting._tempMountDir = os.path.join(self._tmp, 'mounts')
     self.__debug("tmp dir = " + self._tmp)
 
@@ -65,9 +65,9 @@ class Grub2:
     if mountPoint != '/' and os.path.exists(os.path.join(mountPoint, 'etc/fstab')):
       self.__debug("mp != / and etc/fstab exists, will try to mount /boot by chrooting")
       try:
-        self.__debug("grep -q /boot {mp}/etc/fstab && chroot {mp} /sbin/mount /boot".format(mp = mountPoint))
-        if slt.execCall("grep -q /boot {mp}/etc/fstab && chroot {mp} /sbin/mount /boot".format(mp = mount_point)):
-          self.__debug("/boot mounted in " + mp)
+        self.__debug("grep -q /boot {mp}/etc/fstab && chroot {mp} /sbin/mount /boot".format(mp=mountPoint))
+        if slt.execCall("grep -q /boot {mp}/etc/fstab && chroot {mp} /sbin/mount /boot".format(mp=mountPoint)):
+          self.__debug("/boot mounted in " + mountPoint)
           self._bootInBootMounted = True
       except:
         pass
@@ -79,9 +79,9 @@ class Grub2:
     if mountPoint != "/":
       self.__debug("mount point ≠ / so mount /dev, /proc and /sys in " + mountPoint)
       self._procInBootMounted = True
-      slt.execCall('mount -o bind /dev {mp}/dev'.format(mp = mountPoint))
-      slt.execCall('mount -o bind /proc {mp}/proc'.format(mp = mountPoint))
-      slt.execCall('mount -o bind /sys {mp}/sys'.format(mp = mountPoint))
+      slt.execCall('mount -o bind /dev {mp}/dev'.format(mp=mountPoint))
+      slt.execCall('mount -o bind /proc {mp}/proc'.format(mp=mountPoint))
+      slt.execCall('mount -o bind /sys {mp}/sys'.format(mp=mountPoint))
 
   def _unbindProcSysDev(self, mountPoint):
     """
@@ -89,32 +89,32 @@ class Grub2:
     """
     if self._procInBootMounted:
       self.__debug("mount point ≠ / so umount /dev, /proc and /sys in " + mountPoint)
-      slt.execCall('umount {mp}/dev'.format(mp = mountPoint))
-      slt.execCall('umount {mp}/proc'.format(mp = mountPoint))
-      slt.execCall('umount {mp}/sys'.format(mp = mountPoint))
+      slt.execCall('umount {mp}/dev'.format(mp=mountPoint))
+      slt.execCall('umount {mp}/proc'.format(mp=mountPoint))
+      slt.execCall('umount {mp}/sys'.format(mp=mountPoint))
 
   def _copyAndInstallGrub2(self, mountPoint, device):
     if self.isTest:
-      self.__debug("/usr/sbin/grub-install --boot-directory {bootdir} --no-floppy {dev}".format(bootdir = os.path.join(mountPoint, "boot"), dev = device))
+      self.__debug("/usr/sbin/grub-install --boot-directory {bootdir} --no-floppy {dev}".format(bootdir=os.path.join(mountPoint, "boot"), dev=device))
       return True
     else:
-      return slt.execCall("/usr/sbin/grub-install --boot-directory {bootdir} --no-floppy {dev}".format(bootdir = os.path.join(mountPoint, "boot"), dev = device))
+      return slt.execCall("/usr/sbin/grub-install --boot-directory {bootdir} --no-floppy {dev}".format(bootdir=os.path.join(mountPoint, "boot"), dev=device))
 
   def _installGrub2Config(self, mountPoint):
     if os.path.exists(os.path.join(mountPoint, 'etc/default/grub')) and os.path.exists(os.path.join(mountPoint, 'usr/sbin/update-grub')):
       self.__debug("grub2 package is installed on the target partition, so it will be used to generate the grub.cfg file")
       # assume everything is installed on the target partition, grub2 package included.
       if self.isTest:
-        self.__debug("chroot {mp} /usr/sbin/update-grub".format(mp = mountPoint))
+        self.__debug("chroot {mp} /usr/sbin/update-grub".format(mp=mountPoint))
       else:
-        slt.execCall("chroot {mp} /usr/sbin/update-grub".format(mp = mountPoint))
+        slt.execCall("chroot {mp} /usr/sbin/update-grub".format(mp=mountPoint))
     else:
       self.__debug("grub2 not installed on the target partition, so grub_mkconfig will directly be used to generate the grub.cfg file")
       # tiny OS installed on that mount point, so we cannot chroot on it to install grub2 config.
       if self.isTest:
-        self.__debug("/usr/sbin/grub-mkconfig -o {cfg}".format(cfg = os.path.join(mountPoint, "boot/grub/grub.cfg")))
+        self.__debug("/usr/sbin/grub-mkconfig -o {cfg}".format(cfg=os.path.join(mountPoint, "boot/grub/grub.cfg")))
       else:
-        slt.execCall("/usr/sbin/grub-mkconfig -o {cfg}".format(cfg = os.path.join(mountpoint, "boot/grub/grub.cfg")))
+        slt.execCall("/usr/sbin/grub-mkconfig -o {cfg}".format(cfg=os.path.join(mountPoint, "boot/grub/grub.cfg")))
 
   def _umountAll(self, mountPoint):
     self.__debug("umountAll")
@@ -123,7 +123,7 @@ class Grub2:
       self._unbindProcSysDev(mountPoint)
       if self._bootInBootMounted:
         self.__debut("/boot mounted in " + mountPoint + ", so umount it")
-        slt.execCall("chroot {mp} /sbin/umount /boot".format(mp = mountPoint))
+        slt.execCall("chroot {mp} /sbin/umount /boot".format(mp=mountPoint))
       if mountPoint != '/':
         self.__debug("umain mount point ≠ '/' → umount " + mountPoint)
         slt.umountDevice(mountPoint)

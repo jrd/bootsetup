@@ -17,6 +17,7 @@ import gtk.glade
 from bootsetup import *
 from gathergui import *
 
+
 class BootSetupGtk(BootSetup):
   def run_setup(self):
     gtk.glade.bindtextdomain(self._appName, self._localeDir)
@@ -26,9 +27,9 @@ class BootSetupGtk(BootSetup):
       sys.exit(1)
     gg = GatherGui(self, self._version, self._bootloader, self._targetPartition, self._isTest, self._useTestData)
     gg.run()
-  
-  def info_dialog(self, message, title = None, parent = None):
-    dialog = gtk.MessageDialog(parent = parent, type = gtk.MESSAGE_INFO, buttons = gtk.BUTTONS_OK, flags = gtk.DIALOG_MODAL)
+
+  def info_dialog(self, message, title=None, parent=None):
+    dialog = gtk.MessageDialog(parent=parent, type=gtk.MESSAGE_INFO, buttons=gtk.BUTTONS_OK, flags=gtk.DIALOG_MODAL)
     if title:
       msg = "<b>{0}</b>\n\n{1}".format(unicode(title), unicode(message))
     else:
@@ -38,8 +39,8 @@ class BootSetupGtk(BootSetup):
     dialog.destroy()
     return result_info
 
-  def error_dialog(self, message, title = None, parent = None):
-    dialog = gtk.MessageDialog(parent = parent, type = gtk.MESSAGE_ERROR, buttons = gtk.BUTTONS_CLOSE, flags = gtk.DIALOG_MODAL)
+  def error_dialog(self, message, title=None, parent=None):
+    dialog = gtk.MessageDialog(parent=parent, type=gtk.MESSAGE_ERROR, buttons=gtk.BUTTONS_CLOSE, flags=gtk.DIALOG_MODAL)
     if title:
       msg = "<b>{0}</b>\n\n{1}".format(unicode(title), unicode(message))
     else:

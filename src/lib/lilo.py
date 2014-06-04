@@ -19,8 +19,8 @@ import libsalt as slt
 import subprocess
 from operator import itemgetter
 
+
 class Lilo:
-  
   isTest = False
   _prefix = None
   _tmp = None
@@ -54,7 +54,7 @@ bmp-table = 60,6,1,16
 bmp-timer = 65,29,0,255
 
 # Standard menu.
-# Or, you can comment out the bitmap menu above and 
+# Or, you can comment out the bitmap menu above and
 # use a boot message with the standard menu:
 # message = /boot/boot_message.txt
 
@@ -93,7 +93,7 @@ vga = {vga}
   def __init__(self, isTest):
     self.isTest = isTest
     self._prefix = "bootsetup.lilo-"
-    self._tmp = tempfile.mkdtemp(prefix = self._prefix)
+    self._tmp = tempfile.mkdtemp(prefix=self._prefix)
     slt.mounting._tempMountDir = os.path.join(self._tmp, 'mounts')
     self.__debug("tmp dir = " + self._tmp)
 
@@ -144,10 +144,10 @@ vga = {vga}
     if mountPoint != '/' and os.path.exists(fstab) and os.path.exists(bootdir):
       self.__debug("mp != / and etc/fstab + boot exists, will try to mount /boot by reading fstab")
       try:
-        self.__debug('set -- $(grep /boot {fstab}) && echo "$1,$3"'.format(fstab = fstab))
-        (bootDev, bootType) = slt.execGetOutput('set -- $(grep /boot {fstab}) && echo "$1,$3"'.format(fstab = fstab), shell = True)[0].split(',')
+        self.__debug('set -- $(grep /boot {fstab}) && echo "$1,$3"'.format(fstab=fstab))
+        (bootDev, bootType) = slt.execGetOutput('set -- $(grep /boot {fstab}) && echo "$1,$3"'.format(fstab=fstab), shell=True)[0].split(',')
         if bootDev and not os.path.ismount(bootdir):
-          mp = slt.mountDevice(bootDev, fsType = bootType, mountPoint = bootdir)
+          mp = slt.mountDevice(bootDev, fsType=bootType, mountPoint=bootdir)
           if mp:
             self._bootsMounted.append(mp)
             self.__debug("/boot mounted in " + mp)
@@ -173,20 +173,20 @@ vga = {vga}
           mountPointList[p[0]] = mp
           self._mountBootInPartition(mp)
         else:
-          raise Exception("Cannot mount {d}".format(d = dev))
+          raise Exception("Cannot mount {d}".format(d=dev))
 
   def _umountAll(self, mountPoint, mountPointList):
     self.__debug("umountAll")
     if mountPoint:
       for mp in self._bootsMounted:
         self.__debug("umounting " + unicode(mp))
-        slt.umountDevice(mp, deleteMountPoint = False)
+        slt.umountDevice(mp, deleteMountPoint=False)
       self._bootsMounted = []
       if mountPointList:
         self.__debug("umount other mount points: " + unicode(mountPointList))
         for mp in mountPointList.values():
           if mp == mountPoint:
-            continue # skip it, will be unmounted just next
+            continue  # skip it, will be unmounted just next
           self.__debug("umount " + unicode(mp))
           slt.umountDevice(mp)
       if mountPoint != '/':
@@ -211,7 +211,7 @@ vga = {vga}
           mp = mountPointList[p[0]]
           sections.extend(self._getLinuxLiloSections(device, fs, mp, label))
         else:
-          sys.err.write("The boot type {type} is not supported.\n".format(type = bootType))
+          sys.err.write("The boot type {type} is not supported.\n".format(type=bootType))
     return sections
 
   def _getChainLiloSection(self, device, label):
@@ -222,7 +222,7 @@ vga = {vga}
     return """# {label} chain section
   other = {device}
   label = {label}
-""".format(device = device, label = label)
+""".format(device=device, label=label)
 
   def _getLinuxLiloSections(self, device, fs, mp, label):
     """
@@ -230,17 +230,17 @@ vga = {vga}
     """
     sections = []
     self.__debug("Section 'linux' for " + device + "/" + fs + ", mounted on " + mp + " with label: " + label)
-    kernelList = sorted(glob.glob("{mp}/boot/vmlinuz*".format(mp = mp)))
-    initrdList = sorted(glob.glob("{mp}/boot/initr*".format(mp = mp)))
+    kernelList = sorted(glob.glob("{mp}/boot/vmlinuz*".format(mp=mp)))
+    initrdList = sorted(glob.glob("{mp}/boot/initr*".format(mp=mp)))
     for l in (kernelList, initrdList):
       for el in l:
         if os.path.isdir(el) or os.path.islink(el):
           l.remove(el)
     self.__debug("kernelList: " + unicode(kernelList))
     self.__debug("initrdList: " + unicode(initrdList))
-    uuid = slt.execGetOutput(['/sbin/blkid', '-s', 'UUID', '-o', 'value', device], shell = False)
+    uuid = slt.execGetOutput(['/sbin/blkid', '-s', 'UUID', '-o', 'value', device], shell=False)
     if uuid:
-      rootDevice = "/dev/disk/by-uuid/{uuid}".format(uuid = uuid[0])
+      rootDevice = "/dev/disk/by-uuid/{uuid}".format(uuid=uuid[0])
     else:
       rootDevice = device
     self.__debug("rootDevice = " + rootDevice)
@@ -252,15 +252,15 @@ vga = {vga}
   image = {image}
   initrd = {initrd}
   root = {root}
-""".format(image = k, initrd = i, root = rootDevice, label = l)
+""".format(image=k, initrd=i, root=rootDevice, label=l)
       else:
         section = """# {label} Linux section
   image = {image}
   root = {root}
-""".format(image = k, root = rootDevice, label = l)
+""".format(image=k, root=rootDevice, label=l)
       if fs == 'ext4':
-        section += '  append = "{append} "\n'.format(append = 'rootfstype=ext4')
-      section += "  read-only\n  label = {label}\n".format(label = l)
+        section += '  append = "{append} "\n'.format(append='rootfstype=ext4')
+      section += "  read-only\n  label = {label}\n".format(label=l)
       sections.append(section)
     return sections
 
@@ -270,17 +270,17 @@ vga = {vga}
       if len(kernelList) == 1:
         initrd = None
         if initrdList:
-          initrd = initrdList[0] # assume the only initrd match the only kernel
+          initrd = initrdList[0]  # assume the only initrd match the only kernel
         ret.append([kernelList[0], initrd, labelRef])
       else:
-        labelBase = labelRef[0:15-2] + "-"
+        labelBase = labelRef[0:15 - 2] + "-"
         n = 0
         for kernel in kernelList:
           n += 1
           kernelSuffix = os.path.basename(kernel).replace("vmlinuz", "")
           initrd = None
           for i in initrdList:
-            if kernelSuffix in i: # find the matching initrd
+            if kernelSuffix in i:  # find the matching initrd
               initrd = i
               break
           ret.append((kernel, initrd, labelBase + unicode(n)))
@@ -394,7 +394,7 @@ vga = {vga}
       yMax = None
       dMax = None
       # order the vesa modes by vertical size desc, horizontal size desc, color depth desc.
-      for vesaMode in sorted(vesaModes, key = itemgetter(1, 0, 2), reverse = True):
+      for vesaMode in sorted(vesaModes, key=itemgetter(1, 0, 2), reverse=True):
         (x, y, d, m) = vesaMode
         if m:
           self.__debug("trying {0} for y, {1} for x and {2} for d".format(y, x, d))
@@ -405,8 +405,8 @@ vga = {vga}
             mode = m
             break
       if mode:
-        self.__debug("Max mode found: {x}×{y}×{d}".format(x = xMax, y = yMax, d = dMax))
-        label = "{x}x{y}x{d}".format(x = xMax, y = yMax, d = dMax)
+        self.__debug("Max mode found: {x}×{y}×{d}".format(x=xMax, y=yMax, d=dMax))
+        label = "{x}x{y}x{d}".format(x=xMax, y=yMax, d=dMax)
     if not mode:
       mode = 'normal'
       label = 'text'
@@ -436,7 +436,7 @@ vga = {vga}
       (fb, fbLabel) = self._getFrameBufferConf()
       self.__debug("frame buffer mode = " + unicode(fb) + " " + unicode(fbLabel))
       f = open(self.getConfigurationPath(), "w")
-      f.write(self._cfgTemplate.format(boot = self._mbrDevice, mp = mp, vga = "{0} # {1}".format(fb, fbLabel)))
+      f.write(self._cfgTemplate.format(boot=self._mbrDevice, mp=mp, vga="{0} # {1}".format(fb, fbLabel)))
       for s in liloSections:
         f.write(s)
         f.write("\n")
@@ -470,9 +470,9 @@ vga = {vga}
         shutil.copyfile(self.getConfigurationPath(), os.path.join(mp, '/etc/bootsetup/lilo.conf'))
         # run lilo
         if self.isTest:
-          self.__debug('/sbin/lilo -t -v -C {mp}/etc/bootsetup/lilo.conf'.format(mp = mp))
-          slt.execCall('/sbin/lilo -t -v -C {mp}/etc/bootsetup/lilo.conf'.format(mp = mp))
+          self.__debug('/sbin/lilo -t -v -C {mp}/etc/bootsetup/lilo.conf'.format(mp=mp))
+          slt.execCall('/sbin/lilo -t -v -C {mp}/etc/bootsetup/lilo.conf'.format(mp=mp))
         else:
-          slt.execCall('/sbin/lilo -C {mp}/etc/bootsetup/lilo.conf'.format(mp = mp))
+          slt.execCall('/sbin/lilo -C {mp}/etc/bootsetup/lilo.conf'.format(mp=mp))
       finally:
         self._umountAll(mp, mpList)
