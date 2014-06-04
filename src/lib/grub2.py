@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# vim: set et ai sta sw=2 ts=2 tw=0:
+# coding: utf-8
+# vim:et:sta:sts=2:sw=2:ts=2:tw=0:
 """
 Grub2 for BootSetup.
 """
-from __future__ import unicode_literals
+from __future__ import unicode_literals, print_function, division, absolute_import
 
 __copyright__ = 'Copyright 2013-2014, Salix OS'
 __license__ = 'GPL2+'
@@ -13,7 +13,7 @@ import tempfile
 import os
 import sys
 import codecs
-import salix_livetools_library as sltl
+import libsalt as slt
 
 class Grub2:
   
@@ -27,16 +27,16 @@ class Grub2:
     self.isTest = isTest
     self._prefix = "bootsetup.grub2-"
     self._tmp = tempfile.mkdtemp(prefix = self._prefix)
-    sltl.mounting._tempMountDir = os.path.join(self._tmp, 'mounts')
+    slt.mounting._tempMountDir = os.path.join(self._tmp, 'mounts')
     self.__debug("tmp dir = " + self._tmp)
 
   def __del__(self):
     if self._tmp and os.path.exists(self._tmp):
       self.__debug("cleanning " + self._tmp)
       try:
-        if os.path.exists(sltl.mounting._tempMountDir):
-          self.__debug("Remove " + sltl.mounting._tempMountDir)
-          os.rmdir(sltl.mounting._tempMountDir)
+        if os.path.exists(slt.mounting._tempMountDir):
+          self.__debug("Remove " + slt.mounting._tempMountDir)
+          os.rmdir(slt.mounting._tempMountDir)
         self.__debug("Remove " + self._tmp)
         os.rmdir(self._tmp)
       except:
@@ -44,7 +44,7 @@ class Grub2:
 
   def __debug(self, msg):
     if self.isTest:
-      print "Debug: " + msg
+      print("Debug: " + msg)
       with codecs.open("bootsetup.log", "a+", "utf-8") as fdebug:
         fdebug.write("Debug: {0}\n".format(msg))
 
@@ -53,12 +53,12 @@ class Grub2:
     Return the mount point
     """
     self.__debug("bootPartition = " + bootPartition)
-    if sltl.isMounted(bootPartition):
+    if slt.isMounted(bootPartition):
       self.__debug("bootPartition already mounted")
-      return sltl.getMountPoint(bootPartition)
+      return slt.getMountPoint(bootPartition)
     else:
       self.__debug("bootPartition not mounted")
-      return sltl.mountDevice(bootPartition)
+      return slt.mountDevice(bootPartition)
 
   def _mountBootInBootPartition(self, mountPoint):
     # assume that if the mount_point is /, any /boot directory is already accessible/mounted
@@ -66,7 +66,7 @@ class Grub2:
       self.__debug("mp != / and etc/fstab exists, will try to mount /boot by chrooting")
       try:
         self.__debug("grep -q /boot {mp}/etc/fstab && chroot {mp} /sbin/mount /boot".format(mp = mountPoint))
-        if sltl.execCall("grep -q /boot {mp}/etc/fstab && chroot {mp} /sbin/mount /boot".format(mp = mount_point)):
+        if slt.execCall("grep -q /boot {mp}/etc/fstab && chroot {mp} /sbin/mount /boot".format(mp = mount_point)):
           self.__debug("/boot mounted in " + mp)
           self._bootInBootMounted = True
       except:
@@ -79,9 +79,9 @@ class Grub2:
     if mountPoint != "/":
       self.__debug("mount point ≠ / so mount /dev, /proc and /sys in " + mountPoint)
       self._procInBootMounted = True
-      sltl.execCall('mount -o bind /dev {mp}/dev'.format(mp = mountPoint))
-      sltl.execCall('mount -o bind /proc {mp}/proc'.format(mp = mountPoint))
-      sltl.execCall('mount -o bind /sys {mp}/sys'.format(mp = mountPoint))
+      slt.execCall('mount -o bind /dev {mp}/dev'.format(mp = mountPoint))
+      slt.execCall('mount -o bind /proc {mp}/proc'.format(mp = mountPoint))
+      slt.execCall('mount -o bind /sys {mp}/sys'.format(mp = mountPoint))
 
   def _unbindProcSysDev(self, mountPoint):
     """
@@ -89,16 +89,16 @@ class Grub2:
     """
     if self._procInBootMounted:
       self.__debug("mount point ≠ / so umount /dev, /proc and /sys in " + mountPoint)
-      sltl.execCall('umount {mp}/dev'.format(mp = mountPoint))
-      sltl.execCall('umount {mp}/proc'.format(mp = mountPoint))
-      sltl.execCall('umount {mp}/sys'.format(mp = mountPoint))
+      slt.execCall('umount {mp}/dev'.format(mp = mountPoint))
+      slt.execCall('umount {mp}/proc'.format(mp = mountPoint))
+      slt.execCall('umount {mp}/sys'.format(mp = mountPoint))
 
   def _copyAndInstallGrub2(self, mountPoint, device):
     if self.isTest:
       self.__debug("/usr/sbin/grub-install --boot-directory {bootdir} --no-floppy {dev}".format(bootdir = os.path.join(mountPoint, "boot"), dev = device))
       return True
     else:
-      return sltl.execCall("/usr/sbin/grub-install --boot-directory {bootdir} --no-floppy {dev}".format(bootdir = os.path.join(mountPoint, "boot"), dev = device))
+      return slt.execCall("/usr/sbin/grub-install --boot-directory {bootdir} --no-floppy {dev}".format(bootdir = os.path.join(mountPoint, "boot"), dev = device))
 
   def _installGrub2Config(self, mountPoint):
     if os.path.exists(os.path.join(mountPoint, 'etc/default/grub')) and os.path.exists(os.path.join(mountPoint, 'usr/sbin/update-grub')):
@@ -107,14 +107,14 @@ class Grub2:
       if self.isTest:
         self.__debug("chroot {mp} /usr/sbin/update-grub".format(mp = mountPoint))
       else:
-        sltl.execCall("chroot {mp} /usr/sbin/update-grub".format(mp = mountPoint))
+        slt.execCall("chroot {mp} /usr/sbin/update-grub".format(mp = mountPoint))
     else:
       self.__debug("grub2 not installed on the target partition, so grub_mkconfig will directly be used to generate the grub.cfg file")
       # tiny OS installed on that mount point, so we cannot chroot on it to install grub2 config.
       if self.isTest:
         self.__debug("/usr/sbin/grub-mkconfig -o {cfg}".format(cfg = os.path.join(mountPoint, "boot/grub/grub.cfg")))
       else:
-        sltl.execCall("/usr/sbin/grub-mkconfig -o {cfg}".format(cfg = os.path.join(mountpoint, "boot/grub/grub.cfg")))
+        slt.execCall("/usr/sbin/grub-mkconfig -o {cfg}".format(cfg = os.path.join(mountpoint, "boot/grub/grub.cfg")))
 
   def _umountAll(self, mountPoint):
     self.__debug("umountAll")
@@ -123,10 +123,10 @@ class Grub2:
       self._unbindProcSysDev(mountPoint)
       if self._bootInBootMounted:
         self.__debut("/boot mounted in " + mountPoint + ", so umount it")
-        sltl.execCall("chroot {mp} /sbin/umount /boot".format(mp = mountPoint))
+        slt.execCall("chroot {mp} /sbin/umount /boot".format(mp = mountPoint))
       if mountPoint != '/':
         self.__debug("umain mount point ≠ '/' → umount " + mountPoint)
-        sltl.umountDevice(mountPoint)
+        slt.umountDevice(mountPoint)
     self._bootInBootMounted = False
     self._procInBootMounted = False
 

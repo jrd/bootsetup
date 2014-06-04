@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# vim: set et ai sta sw=2 ts=2 tw=0:
+# coding: utf-8
+# vim:et:sta:sts=2:sw=2:ts=2:tw=0:
 """
 LiLo for BootSetup.
 """
-from __future__ import unicode_literals
+from __future__ import unicode_literals, print_function, division, absolute_import
 
 __copyright__ = 'Copyright 2013-2014, Salix OS'
 __license__ = 'GPL2+'
@@ -15,7 +15,7 @@ import shutil
 import os
 import glob
 import codecs
-import salix_livetools_library as sltl
+import libsalt as slt
 import subprocess
 from operator import itemgetter
 
@@ -94,7 +94,7 @@ vga = {vga}
     self.isTest = isTest
     self._prefix = "bootsetup.lilo-"
     self._tmp = tempfile.mkdtemp(prefix = self._prefix)
-    sltl.mounting._tempMountDir = os.path.join(self._tmp, 'mounts')
+    slt.mounting._tempMountDir = os.path.join(self._tmp, 'mounts')
     self.__debug("tmp dir = " + self._tmp)
 
   def __del__(self):
@@ -105,9 +105,9 @@ vga = {vga}
         if os.path.exists(cfgPath):
           self.__debug("Remove " + cfgPath)
           os.remove(cfgPath)
-        if os.path.exists(sltl.mounting._tempMountDir):
-          self.__debug("Remove " + sltl.mounting._tempMountDir)
-          os.rmdir(sltl.mounting._tempMountDir)
+        if os.path.exists(slt.mounting._tempMountDir):
+          self.__debug("Remove " + slt.mounting._tempMountDir)
+          os.rmdir(slt.mounting._tempMountDir)
         self.__debug("Remove " + self._tmp)
         os.rmdir(self._tmp)
       except:
@@ -115,7 +115,7 @@ vga = {vga}
 
   def __debug(self, msg):
     if self.isTest:
-      print "Debug: " + msg
+      print("Debug: " + msg)
       with codecs.open("bootsetup.log", "a+", "utf-8") as fdebug:
         fdebug.write("Debug: {0}\n".format(msg))
 
@@ -127,12 +127,12 @@ vga = {vga}
     Return the mount point
     """
     self.__debug("bootPartition = " + self._bootPartition)
-    if sltl.isMounted(self._bootPartition):
+    if slt.isMounted(self._bootPartition):
       self.__debug("bootPartition already mounted")
-      mp = sltl.getMountPoint(self._bootPartition)
+      mp = slt.getMountPoint(self._bootPartition)
     else:
       self.__debug("bootPartition not mounted")
-      mp = sltl.mountDevice(self._bootPartition)
+      mp = slt.mountDevice(self._bootPartition)
     if mp:
       self._mountBootInPartition(mp)
     return mp
@@ -145,9 +145,9 @@ vga = {vga}
       self.__debug("mp != / and etc/fstab + boot exists, will try to mount /boot by reading fstab")
       try:
         self.__debug('set -- $(grep /boot {fstab}) && echo "$1,$3"'.format(fstab = fstab))
-        (bootDev, bootType) = sltl.execGetOutput('set -- $(grep /boot {fstab}) && echo "$1,$3"'.format(fstab = fstab), shell = True)[0].split(',')
+        (bootDev, bootType) = slt.execGetOutput('set -- $(grep /boot {fstab}) && echo "$1,$3"'.format(fstab = fstab), shell = True)[0].split(',')
         if bootDev and not os.path.ismount(bootdir):
-          mp = sltl.mountDevice(bootDev, fsType = bootType, mountPoint = bootdir)
+          mp = slt.mountDevice(bootDev, fsType = bootType, mountPoint = bootdir)
           if mp:
             self._bootsMounted.append(mp)
             self.__debug("/boot mounted in " + mp)
@@ -164,10 +164,10 @@ vga = {vga}
       for p in partitionsToMount:
         dev = os.path.join("/dev", p[0])
         self.__debug("mount partition " + dev)
-        if sltl.isMounted(dev):
-          mp = sltl.getMountPoint(dev)
+        if slt.isMounted(dev):
+          mp = slt.getMountPoint(dev)
         else:
-          mp = sltl.mountDevice(dev)
+          mp = slt.mountDevice(dev)
         self.__debug("mount partition " + dev + " => " + unicode(mp))
         if mp:
           mountPointList[p[0]] = mp
@@ -180,7 +180,7 @@ vga = {vga}
     if mountPoint:
       for mp in self._bootsMounted:
         self.__debug("umounting " + unicode(mp))
-        sltl.umountDevice(mp, deleteMountPoint = False)
+        slt.umountDevice(mp, deleteMountPoint = False)
       self._bootsMounted = []
       if mountPointList:
         self.__debug("umount other mount points: " + unicode(mountPointList))
@@ -188,10 +188,10 @@ vga = {vga}
           if mp == mountPoint:
             continue # skip it, will be unmounted just next
           self.__debug("umount " + unicode(mp))
-          sltl.umountDevice(mp)
+          slt.umountDevice(mp)
       if mountPoint != '/':
         self.__debug("main mount point ≠ '/' → umount " + mountPoint)
-        sltl.umountDevice(mountPoint)
+        slt.umountDevice(mountPoint)
 
   def _createLiloSections(self, mountPointList):
     """
@@ -238,7 +238,7 @@ vga = {vga}
           l.remove(el)
     self.__debug("kernelList: " + unicode(kernelList))
     self.__debug("initrdList: " + unicode(initrdList))
-    uuid = sltl.execGetOutput(['/sbin/blkid', '-s', 'UUID', '-o', 'value', device], shell = False)
+    uuid = slt.execGetOutput(['/sbin/blkid', '-s', 'UUID', '-o', 'value', device], shell = False)
     if uuid:
       rootDevice = "/dev/disk/by-uuid/{uuid}".format(uuid = uuid[0])
     else:
@@ -292,7 +292,7 @@ vga = {vga}
     Format: (fb, label)
     """
     try:
-      fbGeometry = sltl.execGetOutput("/usr/sbin/fbset | grep -w geometry")
+      fbGeometry = slt.execGetOutput("/usr/sbin/fbset | grep -w geometry")
     except subprocess.CalledProcessorError:
       self.__debug("Impossible to determine frame buffer mode, default to text.")
       fbGeometry = None
@@ -471,8 +471,8 @@ vga = {vga}
         # run lilo
         if self.isTest:
           self.__debug('/sbin/lilo -t -v -C {mp}/etc/bootsetup/lilo.conf'.format(mp = mp))
-          sltl.execCall('/sbin/lilo -t -v -C {mp}/etc/bootsetup/lilo.conf'.format(mp = mp))
+          slt.execCall('/sbin/lilo -t -v -C {mp}/etc/bootsetup/lilo.conf'.format(mp = mp))
         else:
-          sltl.execCall('/sbin/lilo -C {mp}/etc/bootsetup/lilo.conf'.format(mp = mp))
+          slt.execCall('/sbin/lilo -C {mp}/etc/bootsetup/lilo.conf'.format(mp = mp))
       finally:
         self._umountAll(mp, mpList)

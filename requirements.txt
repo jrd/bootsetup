@@ -1,0 +1,2 @@
+pylibsalt>=0.1.0
+urwidm>=0.1.0

@@ -1,25 +1,23 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# vim: set et ai sta sw=2 ts=2 tw=0:
+# coding: utf-8
+# vim:et:sta:sts=2:sw=2:ts=2:tw=0:
 """
 Graphical BootSetup configuration gathering.
 """
-from __future__ import unicode_literals
+from __future__ import unicode_literals, print_function, division, absolute_import
 
 __copyright__ = 'Copyright 2013-2014, Salix OS'
 __license__ = 'GPL2+'
 
-import gettext
+import gettext  # noqa
 import gobject
 import gtk
 import gtk.glade
 import re
-import math
-import subprocess
-from config import *
-import salix_livetools_library as sltl
-from lilo import *
-from grub2 import *
+import libsalt as slt
+from .config import *
+from .lilo import *
+from .grub2 import *
 
 class GatherGui:
   """
@@ -35,14 +33,14 @@ class GatherGui:
   def __init__(self, bootsetup, version, bootloader = None, target_partition = None, is_test = False, use_test_data = False):
     self._bootsetup = bootsetup
     self.cfg = Config(bootloader, target_partition, is_test, use_test_data)
-    print """
+    print("""
 bootloader         = {bootloader}
 target partition   = {partition}
 MBR device         = {mbr}
 disks:{disks}
 partitions:{partitions}
 boot partitions:{boot_partitions}
-""".format(bootloader = self.cfg.cur_bootloader, partition = self.cfg.cur_boot_partition, mbr = self.cfg.cur_mbr_device, disks = "\n - " + "\n - ".join(map(" ".join, self.cfg.disks)), partitions = "\n - " + "\n - ".join(map(" ".join, self.cfg.partitions)), boot_partitions = "\n - " + "\n - ".join(map(" ".join, self.cfg.boot_partitions)))
+""".format(bootloader = self.cfg.cur_bootloader, partition = self.cfg.cur_boot_partition, mbr = self.cfg.cur_mbr_device, disks = "\n - " + "\n - ".join(map(" ".join, self.cfg.disks)), partitions = "\n - " + "\n - ".join(map(" ".join, self.cfg.partitions)), boot_partitions = "\n - " + "\n - ".join(map(" ".join, self.cfg.boot_partitions))))
     builder = gtk.Builder()
     for d in ('./resources', '../resources'):
       if os.path.exists(d + '/bootsetup.glade'):
@@ -178,7 +176,7 @@ click on this button to install your bootloader."))
 
 
   def build_data_stores(self):
-    print 'Building choice lists…',
+    print('Building choice lists…', end='')
     sys.stdout.flush()
     if self.cfg.cur_bootloader == 'lilo':
       self.RadioLilo.activate()
@@ -212,7 +210,7 @@ click on this button to install your bootloader."))
     self.LabelCellRendererCombo.set_property('text-column', 0)
     self.LabelCellRendererCombo.set_property('editable', True)
     self.LabelCellRendererCombo.set_property('cell_background', '#CCCCCC')
-    print ' Done'
+    print(' Done')
     sys.stdout.flush()
 
   # What to do when BootSetup logo is clicked
@@ -230,7 +228,7 @@ click on this button to install your bootloader."))
       del self._lilo
     if self._grub2:
       del self._grub2
-    print "Bye _o/"
+    print("Bye _o/")
     gtk.main_quit()
 
   def process_gui_events(self):
@@ -384,7 +382,7 @@ click on this button to install your bootloader."))
       for editor in self._editors:
         try:
           cmd = editor.split(' ') + [lilocfg]
-          sltl.execCall(cmd, shell=True, env=None)
+          slt.execCall(cmd, shell=True, env=None)
           launched = True
           break
         except:
@@ -406,11 +404,11 @@ click on this button to install your bootloader."))
   
   def on_grub2_edit_button_clicked(self, widget, data=None):
     partition = os.path.join("/dev", self.cfg.cur_boot_partition)
-    if sltl.isMounted(partition):
-      mp = sltl.getMountPoint(partition)
+    if slt.isMounted(partition):
+      mp = slt.getMountPoint(partition)
       doumount = False
     else:
-      mp = sltl.mountDevice(partition)
+      mp = slt.mountDevice(partition)
       doumount = True
     grub2cfg = os.path.join(mp, "etc/default/grub")
     if os.path.exists(grub2cfg):
@@ -418,7 +416,7 @@ click on this button to install your bootloader."))
       for editor in self._editors:
         try:
           cmd = editor.split(' ') + [grub2cfg]
-          sltl.execCall(cmd, shell=True, env=None)
+          slt.execCall(cmd, shell=True, env=None)
           launched = True
           break
         except:
@@ -426,13 +424,13 @@ click on this button to install your bootloader."))
       if not launched:
         self._bootsetup.error_dialog(_("Sorry, BootSetup is unable to find a suitable text editor in your system. You will not be able to manually modify the Grub2 default configuration.\n"))
     if doumount:
-      sltl.umountDevice(mp)
+      slt.umountDevice(mp)
 
   def update_buttons(self):
     install_ok = False
     multiple = False
     grub2_edit_ok = False
-    if self.cfg.cur_mbr_device and os.path.exists("/dev/{0}".format(self.cfg.cur_mbr_device)) and sltl.getDiskInfo(self.cfg.cur_mbr_device):
+    if self.cfg.cur_mbr_device and os.path.exists("/dev/{0}".format(self.cfg.cur_mbr_device)) and slt.getDiskInfo(self.cfg.cur_mbr_device):
       if self.cfg.cur_bootloader == 'lilo' and not self._editing:
         if len(self.BootPartitionListStore) > 1:
           multiple = True
@@ -440,19 +438,19 @@ click on this button to install your bootloader."))
           if bp[4] == "gtk-yes":
             install_ok = True
       elif self.cfg.cur_bootloader == 'grub2':
-        if self.cfg.cur_boot_partition and os.path.exists("/dev/{0}".format(self.cfg.cur_boot_partition)) and sltl.getPartitionInfo(self.cfg.cur_boot_partition):
+        if self.cfg.cur_boot_partition and os.path.exists("/dev/{0}".format(self.cfg.cur_boot_partition)) and slt.getPartitionInfo(self.cfg.cur_boot_partition):
           install_ok = True
         if install_ok:
           partition = os.path.join("/dev", self.cfg.cur_boot_partition)
-          if sltl.isMounted(partition):
-            mp = sltl.getMountPoint(partition)
+          if slt.isMounted(partition):
+            mp = slt.getMountPoint(partition)
             doumount = False
           else:
-            mp = sltl.mountDevice(partition)
+            mp = slt.mountDevice(partition)
             doumount = True
           grub2_edit_ok = os.path.exists(os.path.join(mp, "etc/default/grub"))
           if doumount:
-            sltl.umountDevice(mp)
+            slt.umountDevice(mp)
     self.RadioLilo.set_sensitive(not self._editing)
     self.RadioGrub2.set_sensitive(not self._editing)
     self.ComboBoxMbr.set_sensitive(not self._editing)
@@ -474,7 +472,7 @@ click on this button to install your bootloader."))
     self.installation_done()
 
   def installation_done(self):
-    print "Bootloader Installation Done."
+    print("Bootloader Installation Done.")
     msg = "<b>{0}</b>".format(_("Bootloader installation process completed."))
     self._bootsetup.info_dialog(msg)
     self.gtk_main_quit(self.Window)

@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# vim: set et ai sta sw=2 ts=2 tw=0:
+# coding: utf-8
+# vim:et:sta:sts=2:sw=2:ts=2:tw=0:
 """
 BootSetup helps installing LiLo or Grub2 on your computer.
 This is the launcher.
 """
-from __future__ import unicode_literals
+from __future__ import unicode_literals, print_function, division, absolute_import
 
 __app__ = 'bootsetup'
 __copyright__ = 'Copyright 2013-2014, Salix OS'
@@ -19,7 +19,9 @@ __version__ = '0.1'
 import abc
 import os
 import sys
+_ = None  # for jslint
 import gettext
+
 
 class BootSetup:
 
@@ -33,7 +35,7 @@ class BootSetup:
     self._targetPartition = targetPartition
     self._isTest = isTest
     self._useTestData = useTestData
-    print "BootSetup v{ver}".format(ver = version)
+    print("BootSetup v{ver}".format(ver=version))
 
   @abc.abstractmethod
   def run_setup(self):
@@ -43,7 +45,7 @@ class BootSetup:
     raise NotImplementedError()
 
   @abc.abstractmethod
-  def info_dialog(self, message, title = None, parent = None):
+  def info_dialog(self, message, title=None, parent=None):
     """
     Displays an information message.
 
@@ -51,14 +53,15 @@ class BootSetup:
     raise NotImplementedError()
 
   @abc.abstractmethod
-  def error_dialog(self, message, title = None, parent = None):
+  def error_dialog(self, message, title=None, parent=None):
     """
     Displays an error message.
     """
     return result_error
 
+
 def usage():
-  print """BootSetup v{ver}
+  print("""BootSetup v{ver}
 {copyright}
 {license}
 {author}
@@ -76,15 +79,18 @@ Parameters:
     The partition will be guessed by default if not specified:
       ⋅ First Linux selected partition of the selected disk for LiLo.
       ⋅ First Linux partition, in order, of the selected disk for Grub2. This could be changed in the UI.
-""".format(ver = __version__, copyright = __copyright__, license = __license__, author = __author__)
+""".format(ver=__version__, copyright=__copyright__, license=__license__, author=__author__))
+
 
 def print_err(*args):
   sys.stderr.write((' '.join(map(unicode, args)) + "\n").encode('utf-8'))
 
-def die(s, exit = 1):
+
+def die(s, exit=1):
   print_err(s)
   if exit:
     sys.exit(exit)
+
 
 if __name__ == '__main__':
   if os.path.dirname(__file__):
@@ -96,13 +102,13 @@ if __name__ == '__main__':
   target_partition = None
   locale_dir = '/usr/share/locale'
   gettext.install(__app__, locale_dir, True)
-  for arg in sys.argv[1:]: # argv[0] = own name
+  for arg in sys.argv[1:]:  # argv[0] = own name
     if arg:
       if arg == '--help':
         usage()
         sys.exit(0)
       elif arg == '--version':
-        print __version__
+        print(__version__)
         sys.exit(0)
       elif arg == '--test':
         is_test = True

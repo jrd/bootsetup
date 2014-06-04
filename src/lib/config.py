@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# vim: set et ai sta sw=2 ts=2 tw=0:
+# coding: utf-8
+# vim:et:sta:sts=2:sw=2:ts=2:tw=0:
 """
 Config class helps storing the configuration for the bootloader setup.
 """
-from __future__ import unicode_literals
+from __future__ import unicode_literals, print_function, division, absolute_import
 
 __copyright__ = 'Copyright 2013-2014, Salix OS'
 __license__ = 'GPL2+'
@@ -13,7 +13,7 @@ import sys
 import re
 import codecs
 import os
-import salix_livetools_library as sltl
+import libsalt as slt
 
 class Config:
   """
@@ -39,23 +39,23 @@ class Config:
 
   def __debug(self, msg):
     if self.is_test:
-      print "Debug: " + msg
+      print("Debug: " + msg)
       with codecs.open("bootsetup.log", "a+", "utf-8") as fdebug:
         fdebug.write("Debug: {0}\n".format(msg))
 
   def _get_current_config(self):
-    print 'Gathering current configuration…',
+    print('Gathering current configuration…', end='')
     if self.is_test:
-      print ''
+      print('')
     sys.stdout.flush()
     if self.is_test:
       self.is_live = False
     else:
-      self.is_live = sltl.isSaLTLiveEnv()
+      self.is_live = slt.isSaLTLiveEnv()
     if self.use_test_data:
       self.disks = [
-            ['sda', 'WDC100 (100GB)'],
-            ['sdb', 'SGT350 (350GB)']
+            ['sda', 'msdos', 'WDC100 (100GB)'],
+            ['sdb', 'gpt', 'SGT350 (350GB)']
           ]
       self.partitions = [
             ['sda1', 'ntfs', 'WinVista (20GB)'],
@@ -73,18 +73,18 @@ class Config:
     else:
       self.disks = []
       self.partitions = []
-      for disk_device in sltl.getDisks():
-        di = sltl.getDiskInfo(disk_device)
-        self.disks.append([disk_device, "{0} ({1})".format(di['model'], di['sizeHuman'])])
-        for p in sltl.getPartitions(disk_device):
-          pi = sltl.getPartitionInfo(p)
+      for disk_device in slt.getDisks():
+        di = slt.getDiskInfo(disk_device)
+        self.disks.append([disk_device, di['type'], "{0} ({1})".format(di['model'], di['sizeHuman'])])
+        for p in slt.getPartitions(disk_device):
+          pi = slt.getPartitionInfo(p)
           self.partitions.append([p, pi['fstype'], "{0} ({1})".format(pi['label'], pi['sizeHuman'])])
       self.boot_partitions = []
       probes = []
       if not self.is_live:
         # os-prober doesn't want to probe for /
-        slashDevice = sltl.execGetOutput(r"readlink -f $(df / | tail -n 1 | cut -d' ' -f1)")[0]
-        slashFS = sltl.getFsType(re.sub(r'^/dev/', '', slashDevice))
+        slashDevice = slt.execGetOutput(r"readlink -f $(df / | tail -n 1 | cut -d' ' -f1)")[0]
+        slashFS = slt.getFsType(re.sub(r'^/dev/', '', slashDevice))
         osProbesPath = None
         for p in ("/usr/lib64/os-probes/mounted/90linux-distro", "/usr/lib/os-probes/mounted/90linux-distro"):
           if os.path.exists(p):
@@ -97,7 +97,7 @@ class Config:
             pass
           self.__debug("Root device {0} ({1})".format(slashDevice, slashFS))
           self.__debug(osProbesPath + " " + slashDevice + " / " + slashFS)
-          slashDistro = sltl.execGetOutput([osProbesPath, slashDevice, '/', slashFS])
+          slashDistro = slt.execGetOutput([osProbesPath, slashDevice, '/', slashFS])
           if slashDistro:
             probes = slashDistro
       self.__debug("Probes: " + unicode(probes))
@@ -107,7 +107,7 @@ class Config:
           osProberPath = p
           break
       if osProberPath:
-        probes.extend(sltl.execGetOutput(osProberPath, shell = False))
+        probes.extend(slt.execGetOutput(osProberPath, shell = False))
       self.__debug("Probes: " + unicode(probes))
       for probe in probes:
         probe = unicode(probe).strip() # ensure clean line
@@ -131,5 +131,5 @@ class Config:
     elif len(self.disks) > 0:
       # use the first disk.
       self.cur_mbr_device = self.disks[0][0]
-    print ' Done'
+    print(' Done')
     sys.stdout.flush()

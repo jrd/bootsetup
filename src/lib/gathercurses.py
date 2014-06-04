@@ -1,24 +1,21 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# vim: set et ai sta sw=2 ts=2 tw=0:
+# coding: utf-8
+# vim:et:sta:sts=2:sw=2:ts=2:tw=0:
 """
 Curses (urwid) BootSetup configuration gathering.
 """
-from __future__ import unicode_literals
+from __future__ import unicode_literals, print_function, division, absolute_import
 
 __copyright__ = 'Copyright 2013-2014, Salix OS'
 __license__ = 'GPL2+'
 
-import gettext
-import gobject
-import urwid_more as urwidm
+import gettext  # noqa
+import urwidm
 import re
-import math
-import subprocess
-from config import *
-import salix_livetools_library as sltl
-from lilo import *
-from grub2 import *
+import libsalt as slt
+from .config import *
+from .lilo import *
+from .grub2 import *
 
 class GatherCurses:
   """
@@ -67,14 +64,14 @@ class GatherCurses:
     self._bootsetup = bootsetup
     self._version = version
     self.cfg = Config(bootloader, target_partition, is_test, use_test_data)
-    print """
+    print("""
 bootloader         = {bootloader}
 target partition   = {partition}
 MBR device         = {mbr}
 disks:{disks}
 partitions:{partitions}
 boot partitions:{boot_partitions}
-""".format(bootloader = self.cfg.cur_bootloader, partition = self.cfg.cur_boot_partition, mbr = self.cfg.cur_mbr_device, disks = "\n - " + "\n - ".join(map(" ".join, self.cfg.disks)), partitions = "\n - " + "\n - ".join(map(" ".join, self.cfg.partitions)), boot_partitions = "\n - " + "\n - ".join(map(" ".join, self.cfg.boot_partitions)))
+""".format(bootloader = self.cfg.cur_bootloader, partition = self.cfg.cur_boot_partition, mbr = self.cfg.cur_mbr_device, disks = "\n - " + "\n - ".join(map(" ".join, self.cfg.disks)), partitions = "\n - " + "\n - ".join(map(" ".join, self.cfg.partitions)), boot_partitions = "\n - " + "\n - ".join(map(" ".join, self.cfg.boot_partitions))))
     self.ui = urwidm.raw_display.Screen()
     self.ui.set_mouse_tracking()
     self._palette.extend(bootsetup._palette)
@@ -526,7 +523,7 @@ click on this button to install your bootloader.")
       launched = False
       for editor in self._editors:
         try:
-          sltl.execCall([editor, lilocfg], shell=True, env=None)
+          slt.execCall([editor, lilocfg], shell=True, env=None)
           launched = True
           break
         except:
@@ -568,15 +565,15 @@ click on this button to install your bootloader.")
   def _updateGrub2EditButton(self, doTest = True):
     if doTest:
       partition = os.path.join("/dev", self.cfg.cur_boot_partition)
-      if sltl.isMounted(partition):
-        mp = sltl.getMountPoint(partition)
+      if slt.isMounted(partition):
+        mp = slt.getMountPoint(partition)
         doumount = False
       else:
-        mp = sltl.mountDevice(partition)
+        mp = slt.mountDevice(partition)
         doumount = True
       self._grub2_conf = os.path.exists(os.path.join(mp, "etc/default/grub"))
       if doumount:
-        sltl.umountDevice(mp)
+        slt.umountDevice(mp)
     else:
       self._grub2_conf = False
     self._grub2BtnEdit.sensitive = self._grub2_conf
@@ -584,17 +581,17 @@ click on this button to install your bootloader.")
 
   def _editGrub2Conf(self, button):
     partition = os.path.join("/dev", self.cfg.cur_boot_partition)
-    if sltl.isMounted(partition):
-      mp = sltl.getMountPoint(partition)
+    if slt.isMounted(partition):
+      mp = slt.getMountPoint(partition)
       doumount = False
     else:
-      mp = sltl.mountDevice(partition)
+      mp = slt.mountDevice(partition)
       doumount = True
     grub2cfg = os.path.join(mp, "etc/default/grub")
     launched = False
     for editor in self._editors:
       try:
-        sltl.execCall([editor, grub2cfg], shell=True, env=None)
+        slt.execCall([editor, grub2cfg], shell=True, env=None)
         launched = True
         break
       except:
@@ -602,7 +599,7 @@ click on this button to install your bootloader.")
     if not launched:
       self._errorDialog(_("Sorry, BootSetup is unable to find a suitable text editor in your system. You will not be able to manually modify the Grub2 default configuration.\n"))
     if doumount:
-      sltl.umountDevice(mp)
+      slt.umountDevice(mp)
 
   def _onInstall(self, btnInstall):
     if self.cfg.cur_bootloader == 'lilo':
@@ -614,7 +611,7 @@ click on this button to install your bootloader.")
     self.installation_done()
 
   def installation_done(self):
-    print "Bootloader Installation Done."
+    print("Bootloader Installation Done.")
     msg = _("Bootloader installation process completed.")
     self._infoDialog(msg)
     self.main_quit()
@@ -624,5 +621,5 @@ click on this button to install your bootloader.")
       del self._lilo
     if self._grub2:
       del self._grub2
-    print "Bye _o/"
+    print("Bye _o/")
     raise urwidm.ExitMainLoop()
