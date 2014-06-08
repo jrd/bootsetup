@@ -14,8 +14,8 @@ import sys
 import gettext  # noqa
 import gtk
 import gtk.glade
-from bootsetup import *
-from gathergui import *
+from .bootsetup import *
+from .gathergui import *
 
 
 class BootSetupGtk(BootSetup):

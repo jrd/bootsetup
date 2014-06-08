@@ -9,11 +9,11 @@ from __future__ import unicode_literals, print_function, division, absolute_impo
 
 __app__ = 'bootsetup'
 __copyright__ = 'Copyright 2013-2014, Salix OS'
-__author__ = 'Cyrille Pontvieux <jrd~at~enialis~dot~net> and Pierrick Le Brun <akuna~at~salixos~dot~org>'
+__author__ = 'Cyrille Pontvieux <jrd@enialis~dot~net> and Pierrick Le Brun <akuna@salixos~dot~org>'
 __credits__ = ['Cyrille Pontvieux', 'Pierrick Le Brun']
 __maintainer__ = 'Cyrille Pontvieux'
-__email__ = 'jrd~at~enialis~dot~net'
-__license__ = 'GPL2+'
+__email__ = 'jrd@enialis~dot~net'
+__license__ = 'GPLv2+'
 __version__ = '0.1'
 
 import abc
@@ -57,7 +57,7 @@ class BootSetup:
     """
     Displays an error message.
     """
-    return result_error
+    raise NotImplementedError()
 
 
 def usage():
@@ -92,7 +92,7 @@ def die(s, exit=1):
     sys.exit(exit)
 
 
-if __name__ == '__main__':
+def main(args=sys.argv[1:]):
   if os.path.dirname(__file__):
     os.chdir(os.path.dirname(__file__))
   is_graphic = bool(os.environ.get('DISPLAY'))
@@ -102,7 +102,7 @@ if __name__ == '__main__':
   target_partition = None
   locale_dir = '/usr/share/locale'
   gettext.install(__app__, locale_dir, True)
-  for arg in sys.argv[1:]:  # argv[0] = own name
+  for arg in args:
     if arg:
       if arg == '--help':
         usage()
@@ -135,9 +135,12 @@ if __name__ == '__main__':
   if target_partition and not os.path.exists(target_partition):
     die(_("Partition {0} not found.").format(target_partition))
   if is_graphic:
-    from lib.bootsetup_gtk import *
-    bootsetup = BootSetupGtk(__app__, __version__, locale_dir, bootloader, target_partition, is_test, use_test_data)
+    from .bootsetup_gtk import BootSetupGtk as BootSetupImpl
   else:
-    from lib.bootsetup_curses import *
-    bootsetup = BootSetupCurses(__app__, __version__, locale_dir, bootloader, target_partition, is_test, use_test_data)
+    from .bootsetup_curses import BootSetupCurses as BootSetupImpl
+  bootsetup = BootSetupImpl(__app__, __version__, locale_dir, bootloader, target_partition, is_test, use_test_data)
   bootsetup.run_setup()
+
+
+if __name__ == '__main__':
+  main()

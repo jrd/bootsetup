@@ -13,9 +13,10 @@ import gettext  # noqa
 import urwidm
 import re
 import libsalt as slt
-from .config import *
-from .lilo import *
-from .grub2 import *
+from .config import Config
+from .lilo import Lilo
+from .grub2 import Grub2
+
 
 class GatherCurses:
   """

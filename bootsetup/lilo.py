@@ -16,7 +16,7 @@ import os
 import glob
 import codecs
 import libsalt as slt
-import subprocess
+from subprocess import CalledProcessError
 from operator import itemgetter
 
 
@@ -293,7 +293,7 @@ vga = {vga}
     """
     try:
       fbGeometry = slt.execGetOutput("/usr/sbin/fbset | grep -w geometry")
-    except subprocess.CalledProcessorError:
+    except CalledProcessError:
       self.__debug("Impossible to determine frame buffer mode, default to text.")
       fbGeometry = None
     mode = None

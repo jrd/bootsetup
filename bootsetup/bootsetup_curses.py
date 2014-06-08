@@ -13,8 +13,8 @@ import os
 import sys
 import gettext  # noqa
 import urwidm
-from gathercurses import *
-from bootsetup import *
+from .bootsetup import *
+from .gathercurses import *
 
 
 class BootSetupCurses(BootSetup):
