@@ -6,9 +6,6 @@ LiLo for BootSetup.
 """
 from __future__ import unicode_literals, print_function, division, absolute_import
 
-__copyright__ = 'Copyright 2013-2014, Salix OS'
-__license__ = 'GPL2+'
-
 import sys
 import tempfile
 import shutil

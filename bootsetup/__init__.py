@@ -6,4 +6,11 @@ BootSetup helps installing LiLo or Grub2 on your computer.
 """
 from __future__ import unicode_literals, print_function, division, absolute_import
 
-from .bootsetup import __app__, __copyright__, __author__, __credits__, __maintainer__, __email__, __license__, __version__  # noqa
+__app__ = 'bootsetup'
+__copyright__ = 'Copyright 2013-2014, Salix OS'
+__author__ = 'Cyrille Pontvieux <jrd@salixos.org>, Pierrick Le Brun <akuna@salixos.org>'
+__credits__ = ['Cyrille Pontvieux', 'Pierrick Le Brun']
+__maintainer__ = 'Cyrille Pontvieux'
+__email__ = 'jrd@salixos.org'
+__license__ = 'GPLv2+'
+__version__ = '0.1'

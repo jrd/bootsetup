@@ -6,12 +6,13 @@ Curses (urwid) BootSetup configuration gathering.
 """
 from __future__ import unicode_literals, print_function, division, absolute_import
 
-__copyright__ = 'Copyright 2013-2014, Salix OS'
-__license__ = 'GPL2+'
+from .__init__ import __version__, __copyright__, __license__, __author__
+
 
 import gettext  # noqa
 import urwidm
 import re
+import os
 import libsalt as slt
 from .config import Config
 from .lilo import Lilo
@@ -61,9 +62,8 @@ class GatherCurses:
   _liloMaxChars = 15
   _editors = ['vim', 'nano']
 
-  def __init__(self, bootsetup, version, bootloader = None, target_partition = None, is_test = False, use_test_data = False):
+  def __init__(self, bootsetup, bootloader=None, target_partition=None, is_test=False, use_test_data=False):
     self._bootsetup = bootsetup
-    self._version = version
     self.cfg = Config(bootloader, target_partition, is_test, use_test_data)
     print("""
 bootloader         = {bootloader}
@@ -72,7 +72,7 @@ MBR device         = {mbr}
 disks:{disks}
 partitions:{partitions}
 boot partitions:{boot_partitions}
-""".format(bootloader = self.cfg.cur_bootloader, partition = self.cfg.cur_boot_partition, mbr = self.cfg.cur_mbr_device, disks = "\n - " + "\n - ".join(map(" ".join, self.cfg.disks)), partitions = "\n - " + "\n - ".join(map(" ".join, self.cfg.partitions)), boot_partitions = "\n - " + "\n - ".join(map(" ".join, self.cfg.boot_partitions))))
+""".format(bootloader=self.cfg.cur_bootloader, partition=self.cfg.cur_boot_partition, mbr=self.cfg.cur_mbr_device, disks="\n - " + "\n - ".join(map(" ".join, self.cfg.disks)), partitions="\n - " + "\n - ".join(map(" ".join, self.cfg.partitions)), boot_partitions="\n - " + "\n - ".join(map(" ".join, self.cfg.boot_partitions))))
     self.ui = urwidm.raw_display.Screen()
     self.ui.set_mouse_tracking()
     self._palette.extend(bootsetup._palette)
@@ -82,7 +82,7 @@ boot partitions:{boot_partitions}
     self._createHelpView()
     self._createAboutView()
     self._changeBootloaderSection()
-    self._loop = urwidm.MainLoop(self._mainView, self._palette, handle_mouse = True, unhandled_input = self._handleKeys, pop_ups = True)
+    self._loop = urwidm.MainLoop(self._mainView, self._palette, handle_mouse=True, unhandled_input=self._handleKeys, pop_ups=True)
     if self.cfg.cur_bootloader == 'lilo':
       self._radioLiLo.set_state(True)
       self._mainView.body.set_focus(self._mbrDeviceSectionPosition)
@@ -92,10 +92,10 @@ boot partitions:{boot_partitions}
     self._loop.run()
 
   def _infoDialog(self, message):
-    self._bootsetup.info_dialog(message, parent = self._loop.widget)
+    self._bootsetup.info_dialog(message, parent=self._loop.widget)
 
   def _errorDialog(self, message):
-    self._bootsetup.error_dialog(message, parent = self._loop.widget)
+    self._bootsetup.error_dialog(message, parent=self._loop.widget)
 
   def _updateScreen(self):
     if self._loop and self._loop.screen._started:
@@ -104,9 +104,11 @@ boot partitions:{boot_partitions}
   def _onHelpFocusGain(self, widget, context):
     self._helpCtx = context
     return True
+
   def _onHelpFocusLost(self, widget):
     self._helpCtx = ''
     return True
+
   def _installHelpContext(self, widget, context):
     urwidm.connect_signal(widget, 'focusgain', self._onHelpFocusGain, context)
     urwidm.connect_signal(widget, 'focuslost', self._onHelpFocusLost)
@@ -125,19 +127,19 @@ boot partitions:{boot_partitions}
     comboBox.cbox.sensitive_attr = ('focusable', 'focus_edit')
     return comboBox
 
-  def _createEdit(self, caption = '', edit_text = '', multiline = False, align = 'left', wrap = 'space', allow_tab = False, edit_pos = None, layout = None, mask = None):
+  def _createEdit(self, caption='', edit_text='', multiline=False, align='left', wrap='space', allow_tab=False, edit_pos=None, layout=None, mask=None):
     edit = urwidm.EditMore(caption, edit_text, multiline, align, wrap, allow_tab, edit_pos, layout, mask)
     return edit
 
-  def _createButton(self, label, on_press = None, user_data = None):
+  def _createButton(self, label, on_press=None, user_data=None):
     btn = urwidm.ButtonMore(label, on_press, user_data)
     return btn
 
-  def _createRadioButton(self, group, label, state = "first True", on_state_change = None, user_data = None):
+  def _createRadioButton(self, group, label, state="first True", on_state_change=None, user_data=None):
     radio = urwidm.RadioButtonMore(group, label, state, on_state_change, user_data)
     return radio
 
-  def _createCenterButtonsWidget(self, buttons, h_sep = 2, v_sep = 0):
+  def _createCenterButtonsWidget(self, buttons, h_sep=2, v_sep=0):
     maxLen = reduce(max, [len(b.label) for b in buttons], 0) + len("<  >")
     return urwidm.GridFlowMore(buttons, maxLen, h_sep, v_sep, "center")
 
@@ -165,8 +167,8 @@ boot partitions:{boot_partitions}
 +=======================================+
     """
     # header
-    txtTitle = urwidm.Text(_("BootSetup curses, version {ver}").format(ver = self._version), align = "center")
-    header = urwidm.PileMore([urwidm.Divider(), txtTitle, urwidm.Text('─' * (len(txtTitle.text) + 2), align = "center")])
+    txtTitle = urwidm.Text(_("BootSetup curses, version {ver}").format(ver=__version__), align="center")
+    header = urwidm.PileMore([urwidm.Divider(), txtTitle, urwidm.Text('─' * (len(txtTitle.text) + 2), align="center")])
     header.attr = 'header'
     # footer
     keys = [
@@ -174,7 +176,7 @@ boot partitions:{boot_partitions}
         (('a', 'ctrl a'), _("About")),
         (('q', 'f10'), _("Quit")),
       ]
-    keysColumns = urwidm.OptCols(keys, self._handleKeys, attrs = ('footer_key', 'footer'))
+    keysColumns = urwidm.OptCols(keys, self._handleKeys, attrs=('footer_key', 'footer'))
     keysColumns.attr = 'footer'
     footer = urwidm.PileMore([urwidm.Divider('⎽'), keysColumns])
     footer.attr = 'footer'
@@ -184,75 +186,75 @@ boot partitions:{boot_partitions}
 A bootloader is required to load the main operating system of a computer and will initially display \
 a boot menu if several operating systems are available on the same computer.")
     intro = map(lambda line: ('strong', line.replace("<b>", "").replace("</b>", "") + "\n") if line.startswith("<b>") else line, introHtml.split("\n"))
-    intro[-1] = intro[-1].strip() # remove last "\n"
+    intro[-1] = intro[-1].strip()  # remove last "\n"
     txtIntro = urwidm.Text(intro)
     # bootloader type section
     lblBootloader = urwidm.Text(_("Bootloader:"))
     radioGroupBootloader = []
-    self._radioLiLo = self._createRadioButton(radioGroupBootloader, "LiLo", state = False, on_state_change = self._onLiLoChange)
-    self._radioGrub2 = self._createRadioButton(radioGroupBootloader, "Grub2", state = False, on_state_change = self._onGrub2Change)
-    bootloaderTypeSection = urwidm.ColumnsMore([lblBootloader, self._radioLiLo, self._radioGrub2], focus_column = 1)
+    self._radioLiLo = self._createRadioButton(radioGroupBootloader, "LiLo", state=False, on_state_change=self._onLiLoChange)
+    self._radioGrub2 = self._createRadioButton(radioGroupBootloader, "Grub2", state=False, on_state_change=self._onGrub2Change)
+    bootloaderTypeSection = urwidm.ColumnsMore([lblBootloader, self._radioLiLo, self._radioGrub2], focus_column=1)
     self._installHelpContext(bootloaderTypeSection, 'type')
     # mbr device section
     mbrDeviceSection = self._createMbrDeviceSectionView()
     # bootloader section
     self._bootloaderSection = urwidm.WidgetPlaceholderMore(urwidm.Text(""))
     # install section
-    btnInstall = self._createButton(_("_Install bootloader").replace("_", ""), on_press = self._onInstall)
+    btnInstall = self._createButton(_("_Install bootloader").replace("_", ""), on_press=self._onInstall)
     self._installHelpContext(btnInstall, 'install')
     installSection = self._createCenterButtonsWidget([btnInstall])
     # body
-    bodyList = [urwidm.Divider(), txtIntro, urwidm.Divider('─', bottom = 1), bootloaderTypeSection, mbrDeviceSection, urwidm.Divider(), self._bootloaderSection, urwidm.Divider('─', top = 1, bottom = 1), installSection]
+    bodyList = [urwidm.Divider(), txtIntro, urwidm.Divider('─', bottom=1), bootloaderTypeSection, mbrDeviceSection, urwidm.Divider(), self._bootloaderSection, urwidm.Divider('─', top=1, bottom=1), installSection]
     self._mbrDeviceSectionPosition = 4
     body = urwidm.ListBoxMore(urwidm.SimpleListWalker(bodyList))
     body.attr = 'body'
-    frame = urwidm.FrameMore(body, header, footer, focus_part = 'body')
+    frame = urwidm.FrameMore(body, header, footer, focus_part='body')
     frame.attr = 'body'
     self._mainView = frame
 
   def _createHelpView(self):
     bodyPile = urwidm.PileMore([urwidm.Divider(), urwidm.TextMore("Help")])
     bodyPile.attr = 'body'
-    body = urwidm.FillerMore(bodyPile, valign = "top")
+    body = urwidm.FillerMore(bodyPile, valign="top")
     body.attr = 'body'
-    txtTitle = urwidm.Text(_("Help"), align = "center")
-    header = urwidm.PileMore([urwidm.Divider(), txtTitle, urwidm.Text('─' * (len(txtTitle.text) + 2), align = "center")])
+    txtTitle = urwidm.Text(_("Help"), align="center")
+    header = urwidm.PileMore([urwidm.Divider(), txtTitle, urwidm.Text('─' * (len(txtTitle.text) + 2), align="center")])
     header.attr = 'header'
     keys = [
         (('q', 'esc', 'enter'), _("Close")),
       ]
-    keysColumns = urwidm.OptCols(keys, self._handleKeys, attrs = ('footer_key', 'footer'))
+    keysColumns = urwidm.OptCols(keys, self._handleKeys, attrs=('footer_key', 'footer'))
     keysColumns.attr = 'footer'
     footer = urwidm.PileMore([urwidm.Divider('⎽'), keysColumns])
     footer.attr = 'footer'
-    frame = urwidm.FrameMore(body, header, footer, focus_part = 'body')
+    frame = urwidm.FrameMore(body, header, footer, focus_part='body')
     frame.attr = 'body'
     self._helpView = frame
 
   def _createAboutView(self):
     divider = urwidm.Divider()
-    name = urwidm.TextMore(('strong', _("BootSetup curses, version {ver}").format(ver = self._version)), align = "center")
-    comments = urwidm.TextMore(('body', _("Helps set up a bootloader like LiLo or Grub2.")), align = "center")
-    copyright = urwidm.TextMore(('copyright', "Copyright © 2013-2014 Salix OS"), align = "center")
-    license = urwidm.TextMore(('copyright', "GPL v2+"), align = "center")
-    url = urwidm.TextMore(('strong', "http://salixos.org"), align = "center")
-    authors = urwidm.TextMore(('authors', _("Authors:") + "\n" + _("Cyrille Pontvieux <jrd~at~enialis~dot~net>\nPierrick Le Brun <akuna~at~salixos~dot~org>")), align = "center")
-    translators = urwidm.TextMore(('translators', _("Translators:") + "\n" + _("translator_name <translator@email.com>")), align = "center")
+    name = urwidm.TextMore(('strong', _("BootSetup curses, version {ver}").format(ver=__version__)), align="center")
+    comments = urwidm.TextMore(('body', _("Helps set up a bootloader like LiLo or Grub2.")), align="center")
+    copyright = urwidm.TextMore(('copyright', __copyright__), align="center")
+    license = urwidm.TextMore(('copyright', __license__), align="center")
+    url = urwidm.TextMore(('strong', "http://salixos.org"), align="center")
+    authors = urwidm.TextMore(('authors', _("Authors:") + "\n" + __author__.replace(', ', '\n')), align="center")
+    translators = urwidm.TextMore(('translators', _("Translators:") + "\n" + _("translator_name <translator@email.com>")), align="center")
     bodyPile = urwidm.PileMore([divider, name, comments, divider, copyright, license, divider, url, divider, authors, translators])
     bodyPile.attr = 'body'
-    body = urwidm.FillerMore(bodyPile, valign = "top")
+    body = urwidm.FillerMore(bodyPile, valign="top")
     body.attr = 'body'
-    txtTitle = urwidm.Text(_("About BootSetup"), align = "center")
-    header = urwidm.PileMore([urwidm.Divider(), txtTitle, urwidm.Text('─' * (len(txtTitle.text) + 2), align = "center")])
+    txtTitle = urwidm.Text(_("About BootSetup"), align="center")
+    header = urwidm.PileMore([urwidm.Divider(), txtTitle, urwidm.Text('─' * (len(txtTitle.text) + 2), align="center")])
     header.attr = 'header'
     keys = [
         (('q', 'esc', 'enter'), _("Close")),
       ]
-    keysColumns = urwidm.OptCols(keys, self._handleKeys, attrs = ('footer_key', 'footer'))
+    keysColumns = urwidm.OptCols(keys, self._handleKeys, attrs=('footer_key', 'footer'))
     keysColumns.attr = 'footer'
     footer = urwidm.PileMore([urwidm.Divider('⎽'), keysColumns])
     footer.attr = 'footer'
-    frame = urwidm.FrameMore(body, header, footer, focus_part = 'body')
+    frame = urwidm.FrameMore(body, header, footer, focus_part='body')
     frame.attr = 'body'
     self._aboutView = frame
 
@@ -280,20 +282,20 @@ a boot menu if several operating systems are available on the same computer.")
         dev = p[0]
         fs = p[1]
         ostype = p[3]
-        label = re.sub(r'[()]', '', re.sub(r'_\(loader\)', '', re.sub(' ', '_', p[4]))) # lilo does not like spaces and pretty print the label
+        label = re.sub(r'[()]', '', re.sub(r'_\(loader\)', '', re.sub(' ', '_', p[4])))  # lilo does not like spaces and pretty print the label
         listDev.append(urwidm.TextMore(dev))
         listFS.append(urwidm.TextMore(fs))
         listType.append(urwidm.TextMore(ostype))
         self._labelPerDevice[dev] = label
-        editLabel = self._createEdit(edit_text = label, wrap = urwidm.CLIP)
+        editLabel = self._createEdit(edit_text=label, wrap=urwidm.CLIP)
         urwidm.connect_signal(editLabel, 'change', self._onLabelChange, dev)
         urwidm.connect_signal(editLabel, 'focusgain', self._onHelpFocusGain, 'lilotable')
         urwidm.connect_signal(editLabel, 'focuslost', self._onLabelFocusLost, dev)
         listLabel.append(editLabel)
-        btnUp = self._createButton("↑", on_press = self._moveLineUp, user_data = p[0])
+        btnUp = self._createButton("↑", on_press=self._moveLineUp, user_data=p[0])
         self._installHelpContext(btnUp, 'liloup')
         listActionUp.append(btnUp)
-        btnDown = self._createButton("↓", on_press = self._moveLineDown, user_data = p[0])
+        btnDown = self._createButton("↓", on_press=self._moveLineDown, user_data=p[0])
         self._installHelpContext(btnDown, 'lilodown')
         listActionDown.append(btnDown)
       colDev = urwidm.PileMore(listDev)
@@ -305,13 +307,13 @@ a boot menu if several operating systems are available on the same computer.")
       urwidm.connect_signal(colLabel, 'focuslost', self._onLiloColumnFocusLost, [colLabel, colActionUp, colActionDown])
       urwidm.connect_signal(colActionUp, 'focuslost', self._onLiloColumnFocusLost, [colLabel, colActionUp, colActionDown])
       urwidm.connect_signal(colActionDown, 'focuslost', self._onLiloColumnFocusLost, [colLabel, colActionUp, colActionDown])
-      self._liloTable = urwidm.ColumnsMore([('fixed', max(6, len(listDevTitle)), colDev), ('fixed', max(6, len(listFSTitle)), colFS), colType, ('fixed', max(self._liloMaxChars + 1, len(listLabelTitle)), colLabel), ('fixed', 5, colActionUp), ('fixed', 5, colActionDown)], dividechars = 1)
+      self._liloTable = urwidm.ColumnsMore([('fixed', max(6, len(listDevTitle)), colDev), ('fixed', max(6, len(listFSTitle)), colFS), colType, ('fixed', max(self._liloMaxChars + 1, len(listLabelTitle)), colLabel), ('fixed', 5, colActionUp), ('fixed', 5, colActionDown)], dividechars=1)
       self._liloTableLines = urwidm.LineBoxMore(self._liloTable)
       self._liloTableLines.sensitive_attr = "strong"
       self._liloTableLines.unsensitive_attr = "unfocusable"
-      self._liloBtnEdit = self._createButton(_("_Edit configuration").replace("_", ""), on_press = self._editLiLoConf)
+      self._liloBtnEdit = self._createButton(_("_Edit configuration").replace("_", ""), on_press=self._editLiLoConf)
       self._installHelpContext(self._liloBtnEdit, 'liloedit')
-      self._liloBtnCancel = self._createButton(_("_Undo configuration").replace("_", ""), on_press = self._cancelLiLoConf)
+      self._liloBtnCancel = self._createButton(_("_Undo configuration").replace("_", ""), on_press=self._cancelLiLoConf)
       self._installHelpContext(self._liloBtnCancel, 'lilocancel')
       self._liloButtons = self._createCenterButtonsWidget([self._liloBtnEdit, self._liloBtnCancel])
       pile = urwidm.PileMore([self._liloTableLines, self._liloButtons])
@@ -321,24 +323,25 @@ a boot menu if several operating systems are available on the same computer.")
       comboBox = self._createComboBox(_("Install Grub2 files on:"), self.cfg.partitions)
       urwidm.connect_signal(comboBox, 'change', self._onGrub2FilesChange)
       self._installHelpContext(comboBox, 'partition')
-      self._grub2BtnEdit = self._createButton(_("_Edit configuration").replace("_", ""), on_press = self._editGrub2Conf)
+      self._grub2BtnEdit = self._createButton(_("_Edit configuration").replace("_", ""), on_press=self._editGrub2Conf)
       self._installHelpContext(self._grub2BtnEdit, 'grub2edit')
       pile = urwidm.PileMore([comboBox, self._createCenterButtonsWidget([self._grub2BtnEdit])])
       self._onGrub2FilesChange(comboBox, comboBox.selected_item[0], None)
       return pile
     else:
       return urwidm.Text("")
+
   def _onLiloColumnFocusLost(self, widget, columnWidgets):
     pos = widget.get_focus_pos()
     for cw in columnWidgets:
-      cw.focus_item = cw.widget_list[pos] # set focus item directly without using set_focus method to prevent FG/FL events
+      cw.focus_item = cw.widget_list[pos]  # set focus item directly without using set_focus method to prevent FG/FL events
     return True
 
   def _changeBootloaderSection(self):
     self._bootloaderSection.original_widget = self._createBootloaderSectionView()
 
   def _handleKeys(self, key):
-    if not isinstance(key, tuple): # only keyboard input
+    if not isinstance(key, tuple):  # only keyboard input
       key = key.lower()
       if self._mode == 'main':
         if key in ('h', 'f2'):
@@ -448,6 +451,7 @@ click on this button to install your bootloader.")
       return 'max'
     else:
       return 'ok'
+
   def _showLabelError(self, errorType, editLabel):
     """Show a label error if the errorType is 'space' or 'max' and return True, else return False."""
     if errorType == 'space':
@@ -455,14 +459,15 @@ click on this button to install your bootloader.")
       editLabel.sensitive_attr = ('error', 'focus_error')
       return True
     elif errorType == 'max':
-      self._errorDialog(_("\nAn Operating System label should not be more than {max} characters long.\n\nPlease check and correct.\n".format(max = self._liloMaxChars)))
+      self._errorDialog(_("\nAn Operating System label should not be more than {max} characters long.\n\nPlease check and correct.\n".format(max=self._liloMaxChars)))
       editLabel.sensitive_attr = ('error', 'focus_error')
       return True
     elif errorType == 'pass':
       return False
-    else: # == 'ok'
+    else:  # == 'ok'
       editLabel.sensitive_attr = ('focusable', 'focus_edit')
       return False
+
   def _onLabelChange(self, editLabel, newText, device):
     validOld = self._isLabelValid(editLabel.edit_text)
     if validOld == 'ok':
@@ -471,13 +476,14 @@ click on this button to install your bootloader.")
       validNew = 'pass'
     if not self._showLabelError(validNew, editLabel):
       self._labelPerDevice[device] = newText
+
   def _onLabelFocusLost(self, editLabel, device):
     return not self._showLabelError(self._isLabelValid(editLabel.edit_text), editLabel)
 
   def _findDevPosition(self, device):
     colDevice = self._liloTable.widget_list[0]
     for i, line in enumerate(colDevice.widget_list):
-      if i == 0: # skip header
+      if i == 0:  # skip header
         continue
       if line.text == device:
         return i
@@ -485,7 +491,7 @@ click on this button to install your bootloader.")
 
   def _moveLineUp(self, button, device):
     pos = self._findDevPosition(device)
-    if pos > 1: # 0 = header
+    if pos > 1:  # 0 = header
       for col, types in self._liloTable.contents:
         old = col.widget_list[pos]
         del col.widget_list[pos]
@@ -549,6 +555,7 @@ click on this button to install your bootloader.")
     elif hasattr(w, "cells"):
       for w2 in w.cells:
         self._set_sensitive_rec(w2, state)
+
   def _updateLiLoButtons(self):
     self._set_sensitive_rec(self._liloTable, not self._custom_lilo)
     self._liloTableLines.sensitive = not self._custom_lilo
@@ -563,7 +570,7 @@ click on this button to install your bootloader.")
       self._updateGrub2EditButton(False)
       return False
 
-  def _updateGrub2EditButton(self, doTest = True):
+  def _updateGrub2EditButton(self, doTest=True):
     if doTest:
       partition = os.path.join("/dev", self.cfg.cur_boot_partition)
       if slt.isMounted(partition):

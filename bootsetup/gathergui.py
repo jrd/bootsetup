@@ -6,13 +6,14 @@ Graphical BootSetup configuration gathering.
 """
 from __future__ import unicode_literals, print_function, division, absolute_import
 
-__copyright__ = 'Copyright 2013-2014, Salix OS'
-__license__ = 'GPL2+'
+from .__init__ import __version__, __copyright__, __author__
 
 import gettext  # noqa
 import gobject
 import gtk
 import gtk.glade
+import os
+import sys
 import re
 import libsalt as slt
 from .config import Config
@@ -24,14 +25,14 @@ class GatherGui:
   """
   GUI to gather information about the configuration to setup.
   """
-  
+
   _lilo = None
   _grub2 = None
   _editing = False
   _custom_lilo = False
   _editors = ['leafpad', 'gedit', 'geany', 'kate', 'xterm -e nano']
 
-  def __init__(self, bootsetup, version, bootloader = None, target_partition = None, is_test = False, use_test_data = False):
+  def __init__(self, bootsetup, bootloader=None, target_partition=None, is_test=False, use_test_data=False):
     self._bootsetup = bootsetup
     self.cfg = Config(bootloader, target_partition, is_test, use_test_data)
     print("""
@@ -41,16 +42,17 @@ MBR device         = {mbr}
 disks:{disks}
 partitions:{partitions}
 boot partitions:{boot_partitions}
-""".format(bootloader = self.cfg.cur_bootloader, partition = self.cfg.cur_boot_partition, mbr = self.cfg.cur_mbr_device, disks = "\n - " + "\n - ".join(map(" ".join, self.cfg.disks)), partitions = "\n - " + "\n - ".join(map(" ".join, self.cfg.partitions)), boot_partitions = "\n - " + "\n - ".join(map(" ".join, self.cfg.boot_partitions))))
+""".format(bootloader=self.cfg.cur_bootloader, partition=self.cfg.cur_boot_partition, mbr=self.cfg.cur_mbr_device, disks="\n - " + "\n - ".join(map(" ".join, self.cfg.disks)), partitions="\n - " + "\n - ".join(map(" ".join, self.cfg.partitions)), boot_partitions="\n - " + "\n - ".join(map(" ".join, self.cfg.boot_partitions))))
     builder = gtk.Builder()
-    for d in ('./resources', '../resources'):
-      if os.path.exists(d + '/bootsetup.glade'):
-        builder.add_from_file(d + '/bootsetup.glade')
-        break
+    if os.path.exists('bootsetup.glade'):
+      builder.add_from_file('bootsetup.glade')
+    else:
+      raise Exception("bootsetup.glade not found")
     # Get a handle on the glade file widgets we want to interact with
     self.AboutDialog = builder.get_object("about_dialog")
-    self.AboutDialog.set_version(version)
+    self.AboutDialog.set_version(__version__)
     self.AboutDialog.set_copyright(__copyright__)
+    self.AboutDialog.set_authors(__author__)
     self.Window = builder.get_object("bootsetup_main")
     self.LabelContextHelp = builder.get_object("label_context_help")
     self.RadioNone = builder.get_object("radiobutton_none")
@@ -134,7 +136,7 @@ not be displayed in the bootloader menu.\n\
 If several kernels are available within one partition, the label you have chosen for that \
 partition will be appended numerically to create multiple menu entries for each of these kernels.\n\
 Any of these settings can be edited manually in the configuration file."))
-  
+
   def on_up_button_enter_notify_event(self, widget, data=None):
     self.LabelContextHelp.set_markup(_("Use this arrow if you want to move the \
 selected Operating System up to a higher rank.\n\
@@ -174,8 +176,6 @@ it's automatically done by Grub2."))
     self.LabelContextHelp.set_markup(_("Once you have defined your settings, \
 click on this button to install your bootloader."))
 
-
-
   def build_data_stores(self):
     print('Building choice lists…', end='')
     sys.stdout.flush()
@@ -196,14 +196,14 @@ click on this button to install your bootloader."))
     self.PartitionListStore.clear()
     self.BootPartitionListStore.clear()
     for d in self.cfg.disks:
-      self.DiskListStore.append(d)
-    for p in self.cfg.partitions: # for grub2
+      self.DiskListStore.append([d[0], d[2]])
+    for p in self.cfg.partitions:  # for grub2
       self.PartitionListStore.append(p)
-    for p in self.cfg.boot_partitions: # for lilo
-      p2 = list(p) # copy p
-      del p2[2] # discard boot type
-      p2[3] = re.sub(r'[()]', '', re.sub(r'_\(loader\)', '', re.sub(' ', '_', p2[3]))) # lilo does not like spaces and pretty print the label
-      p2.append('gtk-edit') # add a visual
+    for p in self.cfg.boot_partitions:  # for lilo
+      p2 = list(p)  # copy p
+      del p2[2]  # discard boot type
+      p2[3] = re.sub(r'[()]', '', re.sub(r'_\(loader\)', '', re.sub(' ', '_', p2[3])))  # lilo does not like spaces and pretty print the label
+      p2.append('gtk-edit')  # add a visual
       self.BootPartitionListStore.append(p2)
     self.ComboBoxMbrEntry.set_text(self.cfg.cur_mbr_device)
     self.ComboBoxPartitionEntry.set_text(self.cfg.cur_boot_partition)
@@ -402,7 +402,7 @@ click on this button to install your bootloader."))
   def on_combobox_partition_changed(self, widget, data=None):
     self.cfg.cur_boot_partition = self.ComboBoxPartitionEntry.get_text()
     self.update_buttons()
-  
+
   def on_grub2_edit_button_clicked(self, widget, data=None):
     partition = os.path.join("/dev", self.cfg.cur_boot_partition)
     if slt.isMounted(partition):

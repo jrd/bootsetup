@@ -7,19 +7,11 @@ This is the launcher.
 """
 from __future__ import unicode_literals, print_function, division, absolute_import
 
-__app__ = 'bootsetup'
-__copyright__ = 'Copyright 2013-2014, Salix OS'
-__author__ = 'Cyrille Pontvieux <jrd@enialis~dot~net> and Pierrick Le Brun <akuna@salixos~dot~org>'
-__credits__ = ['Cyrille Pontvieux', 'Pierrick Le Brun']
-__maintainer__ = 'Cyrille Pontvieux'
-__email__ = 'jrd@enialis~dot~net'
-__license__ = 'GPLv2+'
-__version__ = '0.1'
+from .__init__ import __app__, __copyright__, __author__, __license__, __version__
 
 import abc
 import os
 import sys
-_ = None  # for jslint
 import gettext
 
 
@@ -27,15 +19,13 @@ class BootSetup:
 
   __metaclass__ = abc.ABCMeta
 
-  def __init__(self, appName, version, localeDir, bootloader, targetPartition, isTest, useTestData):
+  def __init__(self, appName, bootloader, targetPartition, isTest, useTestData):
     self._appName = appName
-    self._version = version
-    self._localeDir = localeDir
     self._bootloader = bootloader
     self._targetPartition = targetPartition
     self._isTest = isTest
     self._useTestData = useTestData
-    print("BootSetup v{ver}".format(ver=version))
+    print("BootSetup v{ver}".format(ver=__version__))
 
   @abc.abstractmethod
   def run_setup(self):
@@ -92,6 +82,13 @@ def die(s, exit=1):
     sys.exit(exit)
 
 
+def find_locale_dir():
+  if '.local' in __file__:
+    return os.path.expanduser(os.path.join('~', '.local', 'share', 'locale'))
+  else:
+    return os.path.join('usr', 'share', 'locale')
+
+
 def main(args=sys.argv[1:]):
   if os.path.dirname(__file__):
     os.chdir(os.path.dirname(__file__))
@@ -100,8 +97,7 @@ def main(args=sys.argv[1:]):
   use_test_data = False
   bootloader = None
   target_partition = None
-  locale_dir = '/usr/share/locale'
-  gettext.install(__app__, locale_dir, True)
+  gettext.install(domain=__app__, localedir=find_locale_dir(), unicode=True)
   for arg in args:
     if arg:
       if arg == '--help':
@@ -112,9 +108,6 @@ def main(args=sys.argv[1:]):
         sys.exit(0)
       elif arg == '--test':
         is_test = True
-        # relaod locale to the correct one for the tests
-        locale_dir = '../data/locale'
-        gettext.install(__app__, locale_dir, True)
         print_err("*** Testing mode ***")
       elif is_test and arg == '--data':
         use_test_data = True
@@ -138,7 +131,7 @@ def main(args=sys.argv[1:]):
     from .bootsetup_gtk import BootSetupGtk as BootSetupImpl
   else:
     from .bootsetup_curses import BootSetupCurses as BootSetupImpl
-  bootsetup = BootSetupImpl(__app__, __version__, locale_dir, bootloader, target_partition, is_test, use_test_data)
+  bootsetup = BootSetupImpl(__app__, bootloader, target_partition, is_test, use_test_data)
   bootsetup.run_setup()
 
 

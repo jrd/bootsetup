@@ -6,9 +6,6 @@ Curses BootSetup.
 """
 from __future__ import unicode_literals, print_function, division, absolute_import
 
-__copyright__ = 'Copyright 2013-2014, Salix OS'
-__license__ = 'GPL2+'
-
 import os
 import sys
 import gettext  # noqa
@@ -30,7 +27,7 @@ class BootSetupCurses(BootSetup):
     if os.getuid() != 0:
       self.error_dialog(_("Root privileges are required to run this program."), _("Sorry!"))
       sys.exit(1)
-    self.gc = GatherCurses(self, self._version, self._bootloader, self._targetPartition, self._isTest, self._useTestData)
+    self.gc = GatherCurses(self, self._bootloader, self._targetPartition, self._isTest, self._useTestData)
     self.gc.run()
 
   def _show_ui_dialog(self, dialog, parent=None):

@@ -6,9 +6,6 @@ Graphical BootSetup.
 """
 from __future__ import unicode_literals, print_function, division, absolute_import
 
-__copyright__ = 'Copyright 2013-2014, Salix OS'
-__license__ = 'GPL2+'
-
 import os
 import sys
 import gettext  # noqa
@@ -19,13 +16,19 @@ from .gathergui import *
 
 
 class BootSetupGtk(BootSetup):
+  def _find_locale_dir(self):
+    if '.local' in __file__:
+      return os.path.expanduser(os.path.join('~', '.local', 'share', 'locale'))
+    else:
+      return os.path.join('usr', 'share', 'locale')
+
   def run_setup(self):
-    gtk.glade.bindtextdomain(self._appName, self._localeDir)
+    gtk.glade.bindtextdomain(self._appName, self._find_locale_dir())
     gtk.glade.textdomain(self._appName)
     if not (self._isTest and self._useTestData) and os.getuid() != 0:
       self.error_dialog(_("Root privileges are required to run this program."), _("Sorry!"))
       sys.exit(1)
-    gg = GatherGui(self, self._version, self._bootloader, self._targetPartition, self._isTest, self._useTestData)
+    gg = GatherGui(self, self._bootloader, self._targetPartition, self._isTest, self._useTestData)
     gg.run()
 
   def info_dialog(self, message, title=None, parent=None):
