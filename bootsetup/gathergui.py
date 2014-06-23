@@ -19,6 +19,8 @@ import libsalt as slt
 from .config import Config
 from .lilo import Lilo
 from .grub2 import Grub2
+from .elilo import ELilo
+from .gummiboot import GummiBoot
 
 
 class GatherGui:
@@ -26,72 +28,125 @@ class GatherGui:
   GUI to gather information about the configuration to setup.
   """
 
-  _lilo = None
-  _grub2 = None
-  _editing = False
-  _custom_lilo = False
-  _editors = ['leafpad', 'gedit', 'geany', 'kate', 'xterm -e nano']
+  _bootloader = None  # current bootloader instance
+  _editing = False  # True when editing a boot label
+  _custom_config = False  # True when a custom config (lilo.conf, elilo.conf, gummiboot entries) is being or has been edited
 
-  def __init__(self, bootsetup, bootloader=None, target_partition=None, is_test=False, use_test_data=False):
+  def __init__(self, bootsetup, is_test=False, use_test_data=False, target_partition=None):
     self._bootsetup = bootsetup
-    self.cfg = Config(bootloader, target_partition, is_test, use_test_data)
+    self.cfg = Config(is_test, use_test_data, target_partition)
     print("""
-bootloader         = {bootloader}
-target partition   = {partition}
-MBR device         = {mbr}
 disks:{disks}
 partitions:{partitions}
-boot partitions:{boot_partitions}
-""".format(bootloader=self.cfg.cur_bootloader, partition=self.cfg.cur_boot_partition, mbr=self.cfg.cur_mbr_device, disks="\n - " + "\n - ".join(map(" ".join, self.cfg.disks)), partitions="\n - " + "\n - ".join(map(" ".join, self.cfg.partitions)), boot_partitions="\n - " + "\n - ".join(map(" ".join, self.cfg.boot_partitions))))
+possible boot partitions:{boot_partitions}
+possible efi system partitions:{esp}
+""".format(disks="\n - " + "\n - ".join(map(" ".join, self.cfg.disks)), partitions="\n - " + "\n - ".join(map(" ".join, self.cfg.partitions)), boot_partitions="\n - " + "\n - ".join(map(" ".join, self.cfg.boot_partitions)), esp="\n - " + "\n - ".join(map(" ".join, self.cfg.esp))))
     builder = gtk.Builder()
     if os.path.exists('bootsetup.glade'):
       builder.add_from_file('bootsetup.glade')
     else:
       raise Exception("bootsetup.glade not found")
     # Get a handle on the glade file widgets we want to interact with
-    self.AboutDialog = builder.get_object("about_dialog")
-    self.AboutDialog.set_version(__version__)
-    self.AboutDialog.set_copyright(__copyright__)
-    self.AboutDialog.set_authors(__author__)
-    self.Window = builder.get_object("bootsetup_main")
-    self.LabelContextHelp = builder.get_object("label_context_help")
-    self.RadioNone = builder.get_object("radiobutton_none")
-    self.RadioNone.hide()
-    self.RadioLilo = builder.get_object("radiobutton_lilo")
-    self.RadioGrub2 = builder.get_object("radiobutton_grub2")
-    self.ComboBoxMbr = builder.get_object("combobox_mbr")
-    self.ComboBoxMbrEntry = self.ComboBoxMbr.get_internal_child(builder, "entry")
-    self._add_combobox_cell_renderer(self.ComboBoxMbr, 1)
-    self.LiloPart = builder.get_object("part_lilo")
-    self.BootPartitionTreeview = builder.get_object("boot_partition_treeview")
-    self.LabelCellRendererCombo = builder.get_object("label_cellrenderercombo")
-    self.PartitionTreeViewColumn = builder.get_object("partition_treeviewcolumn")
-    self.FileSystemTreeViewColumn = builder.get_object("filesystem_treeviewcolumn")
-    self.OsTreeViewColumn = builder.get_object("os_treeviewcolumn")
-    self.LabelTreeViewColumn = builder.get_object("label_treeviewcolumn")
-    self.UpButton = builder.get_object("up_button")
-    self.DownButton = builder.get_object("down_button")
-    self.LiloUndoButton = builder.get_object("lilo_undo_button")
-    self.LiloEditButton = builder.get_object("lilo_edit_button")
-    self.Grub2Part = builder.get_object("part_grub2")
-    self.Grub2EditButton = builder.get_object("grub2_edit_button")
-    self.ComboBoxPartition = builder.get_object("combobox_partition")
-    self.ComboBoxPartitionEntry = self.ComboBoxPartition.get_internal_child(builder, "entry")
-    self._add_combobox_cell_renderer(self.ComboBoxPartition, 2)
-    self._add_combobox_cell_renderer(self.ComboBoxPartition, 1, padding=20)
-    self.ExecuteButton = builder.get_object("execute_button")
-    self.DiskListStore = builder.get_object("boot_disk_list_store")
-    self.PartitionListStore = builder.get_object("boot_partition_list_store")
-    self.BootPartitionListStore = builder.get_object("boot_bootpartition_list_store")
-    self.BootLabelListStore = builder.get_object("boot_label_list_store")
+    self.aboutDialog = builder.get_object("about_dialog")
+    self.aboutDialog.set_version(__version__)
+    self.aboutDialog.set_copyright(__copyright__)
+    self.aboutDialog.set_authors(__author__)
+    # Wizard window
+    self.wizard = builder.get_object("bootsetup_page")
+    self.contextualHelp = builder.get_object("help_context")
+    # Different pages
+    self.wizardPages = {}
+    self.wizardPages['BootMode'] = builder.get_object("bootmode")
+    self.wizardPages['BiosPartitions'] = builder.get_object("bios_partitions")
+    self.wizardPages['BiosBootloaders'] = builder.get_object("bios_bootloaders")
+    self.wizardPages['BootConfig'] = builder.get_object("boot_config")
+    self.wizardPages['BiosGrub2'] = builder.get_object("bios_grub2")
+    self.wizardPages['EFIPartitions'] = builder.get_object("efi_partitions")
+    self.wizardPages['EFIBootloaders'] = builder.get_object("efi_bootloaders")
+    self.wizardPages['EFIGrub2'] = builder.get_object("efi_grub2")
+    self.wizardPages['Summary'] = builder.get_object("install_summary")
+    # boot mode
+    self.radioBios = builder.get_object("radiobutton_bios")
+    self.radioEfi = builder.get_object("radiobutton_efi")
+    self.checkSecureBoot = builder.get_object("checkbutton_secureboot")
+    # bios partitions
+    self.comboBoxMbr = builder.get_object("combobox_mbr")
+    self._add_combobox_cell_renderer(self.comboBoxMbr, 1)
+    self.comboBoxMbrEntry = self.comboBoxMbr.get_internal_child(builder, "entry")
+    self.comboBoxBiosRootPartition = builder.get_object("combobox_bios_root_partition")
+    self._add_combobox_cell_renderer(self.comboBoxBiosRootPartition, 2)
+    self._add_combobox_cell_renderer(self.comboBoxBiosRootPartition, 1, padding=20)
+    self.comboBoxBiosRootPartitionEntry = self.comboBoxBiosRootPartition.get_internal_child(builder, "entry")
+    # bios boot loaders
+    self.radioLilo = builder.get_object("radiobutton_lilo")
+    self.radioGrub2 = builder.get_object("radiobutton_grub2")
+    # bios lilo / boot config
+    self.bootPartitionTreeview = builder.get_object("boot_partition_treeview")
+    self.partitionTreeViewColumn = builder.get_object("partition_treeviewcolumn")
+    self.fileSystemTreeViewColumn = builder.get_object("filesystem_treeviewcolumn")
+    self.osTreeViewColumn = builder.get_object("os_treeviewcolumn")
+    self.labelTreeViewColumn = builder.get_object("label_treeviewcolumn")
+    self.labelCellRendererCombo = builder.get_object("label_cellrenderercombo")
+    self.upButton = builder.get_object("up_button")
+    self.downButton = builder.get_object("down_button")
+    self.customUndoButton = builder.get_object("custom_undo_button")
+    self.customEditButton = builder.get_object("custom_edit_button")
+    # bios grub2
+    self.comboBoxPartition = builder.get_object("combobox_partition")
+    self._add_combobox_cell_renderer(self.comboBoxPartition, 2)
+    self._add_combobox_cell_renderer(self.comboBoxPartition, 1, padding=20)
+    self.comboBoxPartitionEntry = self.comboBoxPartition.get_internal_child(builder, "entry")
+    self.grub2BiosEditButton = builder.get_object("grub2_bios_edit_button")
+    # efi partitions
+    self.comboBoxESP = builder.get_object("combobox_esp")
+    self._add_combobox_cell_renderer(self.comboBoxESP, 2)
+    self._add_combobox_cell_renderer(self.comboBoxESP, 1, padding=20)
+    self.comboBoxESPEntry = self.comboBoxESP.get_internal_child(builder, "entry")
+    self.comboBoxEfiRootPartition = builder.get_object("combobox_efi_root_partition")
+    self._add_combobox_cell_renderer(self.comboBoxEfiRootPartition, 2)
+    self._add_combobox_cell_renderer(self.comboBoxEfiRootPartition, 1, padding=20)
+    self.comboBoxEfiRootPartitionEntry = self.comboBoxEfiRootPartition.get_internal_child(builder, "entry")
+    # efi boot loaders
+    self.radioGrub2Efi = builder.get_object("radiobutton_grub2_efi")
+    self.radioELilo = builder.get_object("radiobutton_elilo")
+    self.radioGummiBoot = builder.get_object("radiobutton_gummiboot")
+    # efi grub2
+    self.grub2EfiEditButton = builder.get_object("grub2_efi_edit_button")
+    # summary
+    self.installSummary = builder.get_object("install_summary")
+    # other widgets
+    self.quitButton = builder.get_object("button_quit")
+    self.previousButton = builder.get_object("button_previous")
+    self.nextButton = builder.get_object("button_next")
+    self.installButton = builder.get_object("button_install")
+    # list store
+    self.diskListStore = builder.get_object("boot_disk_list_store")
+    self.partitionListStore = builder.get_object("boot_partition_list_store")
+    self.bootPartitionListStore = builder.get_object("boot_bootpartition_list_store")
+    self.espPartitionListStore = builder.get_object("boot_esp_list_store")
+    self.bootLabelListStore = builder.get_object("boot_label_list_store")
     # Initialize the contextual help box
     self.context_intro = _("<b>BootSetup will install a new bootloader on your computer.</b> \n\
 \n\
 A bootloader is required to load the main operating system of a computer and will initially display \
 a boot menu if several operating systems are available on the same computer.")
     self.on_leave_notify_event(None)
+    # Initialize the navigation wizard
+    self.navigation = {
+        'BootMode': (None, lambda: 'BiosPartitions' if self.cfg.cur_bootmode == 'bios' else 'EFIPartitions'),
+        'BiosPartitions': ('BootMode', 'BiosBootloaders'),
+        'BiosBootloaders': ('BiosPartitions', lambda: 'BootConfig' if self.cfg.cur_bootloader == 'lilo' else 'BiosGrub2'),
+        'BootConfig': (lambda: 'BiosBootloaders' if self.cfg.cur_bootloader == 'lilo' else 'EFIBootloaders', 'Summary'),
+        'BiosGrub2': ('BiosPartitions', 'Summary'),
+        'EFIPartitions': ('BootMode', 'EFIBootloaders'),
+        'EFIBootloaders': ('EFIPartitions', lambda: 'EFIGrub2' if self.cfg.cur_bootloader == 'grub2_efi' else 'BootConfig'),
+        'EFIGrub2': ('EFIBootloaders', 'Summary'),
+        'Summary': (lambda: 'EFIGrub2' if self.cfg.cur_bootloader == 'grub2_efi' else 'BootConfig', None)
+    }
+    self.wizard_page = None
+    self.wizard_go()
+    # Build data stores for filling combo boxes and grid tables
     self.build_data_stores()
-    self.update_buttons()
     # Connect signals
     builder.connect_signals(self)
 
@@ -111,124 +166,51 @@ a boot menu if several operating systems are available on the same computer.")
       comboBox.pack_end(cell, expand)
     comboBox.add_attribute(cell, 'text', modelPosition)
 
-  # General contextual help
-  def on_leave_notify_event(self, widget, data=None):
-    self.LabelContextHelp.set_markup(self.context_intro)
-
-  def on_about_button_enter_notify_event(self, widget, data=None):
-    self.LabelContextHelp.set_text(_("About BootSetup."))
-
-  def on_bootloader_type_enter_notify_event(self, widget, data=None):
-    self.LabelContextHelp.set_markup(_("Here you can choose between LiLo or the Grub2 bootloader.\n\
-Both will boot your Linux and (if applicable) Windows.\n\
-LiLo is the old way but still works pretty well. A good choice if you have a simple setup.\n\
-Grub2 is a full-featured bootloader and more robust (does not rely on blocklists)."))
-
-  def on_combobox_mbr_enter_notify_event(self, widget, data=None):
-    self.LabelContextHelp.set_markup(_("Select the device that will contain your bootloader.\n\
-This is commonly the device you set your Bios to boot on."))
-
-  def on_boot_partition_treeview_enter_notify_event(self, widget, data=None):
-    self.LabelContextHelp.set_markup(_("Here you must define a boot menu label for each \
-of the operating systems that will be displayed in your bootloader menu.\n\
-Any partition for which you do not set a boot menu label will not be configured and will \
-not be displayed in the bootloader menu.\n\
-If several kernels are available within one partition, the label you have chosen for that \
-partition will be appended numerically to create multiple menu entries for each of these kernels.\n\
-Any of these settings can be edited manually in the configuration file."))
-
-  def on_up_button_enter_notify_event(self, widget, data=None):
-    self.LabelContextHelp.set_markup(_("Use this arrow if you want to move the \
-selected Operating System up to a higher rank.\n\
-The partition with the highest rank will be displayed on the first line of the bootloader menu.\n\
-Any of these settings can be edited manually in the configuration file."))
-
-  def on_down_button_enter_notify_event(self, widget, data=None):
-    self.LabelContextHelp.set_markup(_("Use this arrow if you want to move the \
-selected Operating System down to a lower rank.\n\
-The partition with the lowest rank will be displayed on the last line of the bootloader menu.\n\
-Any of these settings can be edited manually in the configuration file."))
-
-  def on_lilo_undo_button_enter_notify_event(self, widget, data=None):
-    self.LabelContextHelp.set_markup(_("This will undo all settings (even manual modifications)."))
-
-  def on_lilo_edit_button_enter_notify_event(self, widget, data=None):
-    self.LabelContextHelp.set_markup(_("Experienced users can \
-manually edit the LiLo configuration file.\n\
-Please do not tamper with this file unless you know what you are doing and you have \
-read its commented instructions regarding chrooted paths."))
-
-  def on_combobox_partition_enter_notify_event(self, widget, data=None):
-    self.LabelContextHelp.set_markup(_("Select the partition that will contain the Grub2 files.\n\
-These will be in /boot/grub/. This partition should be readable by Grub2.\n\
-It is recommanded to use your / partition, or your /boot partition if you have one."))
-
-  def on_grub2_edit_button_enter_notify_event(self, widget, data=None):
-    self.LabelContextHelp.set_markup(_("You can edit the etc/default/grub file for \
-adjusting the Grub2 settings.\n\
-This will not let you choose the label or the order of the menu entries, \
-it's automatically done by Grub2."))
-
-  def on_button_quit_enter_notify_event(self, widget, data=None):
-    self.LabelContextHelp.set_text(_("Exit BootSetup program."))
-
-  def on_execute_button_enter_notify_event(self, widget, data=None):
-    self.LabelContextHelp.set_markup(_("Once you have defined your settings, \
-click on this button to install your bootloader."))
+  def _set_text_for(self, widget, text):
+    if text:
+      widget.set_text(text)
+    else:
+      widget.set_text('')
 
   def build_data_stores(self):
     print('Building choice lists…', end='')
     sys.stdout.flush()
-    if self.cfg.cur_bootloader == 'lilo':
-      self.RadioLilo.activate()
-      self.Window.set_focus(self.RadioLilo)
-    elif self.cfg.cur_bootloader == 'grub2':
-      self.RadioGrub2.activate()
-      self.Window.set_focus(self.RadioGrub2)
-    else:
-      self.RadioNone.activate()
-      self._grub2 = None
-      self._lilo = None
-      self.LiloPart.hide()
-      self.Grub2Part.hide()
-      self.Window.set_focus(self.RadioLilo)
-    self.DiskListStore.clear()
-    self.PartitionListStore.clear()
-    self.BootPartitionListStore.clear()
+    self.diskListStore.clear()
+    self.partitionListStore.clear()
+    self.bootPartitionListStore.clear()
+    self.espPartitionListStore.clear()
     for d in self.cfg.disks:
-      self.DiskListStore.append([d[0], d[2]])
-    for p in self.cfg.partitions:  # for grub2
-      self.PartitionListStore.append(p)
-    for p in self.cfg.boot_partitions:  # for lilo
+      self.diskListStore.append([d[0], d[2]])
+    for p in self.cfg.partitions:  # for grub2 bios
+      self.partitionListStore.append(p)
+    for p in self.cfg.boot_partitions:  # for lilo, elilo, gummiboot
       p2 = list(p)  # copy p
       del p2[2]  # discard boot type
       p2[3] = re.sub(r'[()]', '', re.sub(r'_\(loader\)', '', re.sub(' ', '_', p2[3])))  # lilo does not like spaces and pretty print the label
       p2.append('gtk-edit')  # add a visual
-      self.BootPartitionListStore.append(p2)
-    self.ComboBoxMbrEntry.set_text(self.cfg.cur_mbr_device)
-    self.ComboBoxPartitionEntry.set_text(self.cfg.cur_boot_partition)
-    self.LabelCellRendererCombo.set_property("model", self.BootLabelListStore)
-    self.LabelCellRendererCombo.set_property('text-column', 0)
-    self.LabelCellRendererCombo.set_property('editable', True)
-    self.LabelCellRendererCombo.set_property('cell_background', '#CCCCCC')
+      self.bootPartitionListStore.append(p2)
+    for p in self.cfg.esp:  # for EFI
+      self.espPartitionListStore.append(p)
+    self.labelCellRendererCombo.set_property("model", self.bootLabelListStore)
+    self.labelCellRendererCombo.set_property('text-column', 0)
+    self.labelCellRendererCombo.set_property('editable', True)
+    self.labelCellRendererCombo.set_property('cell_background', '#CCCCCC')
     print(' Done')
     sys.stdout.flush()
 
   # What to do when BootSetup logo is clicked
   def on_about_button_clicked(self, widget, data=None):
-    self.AboutDialog.show()
+    self.aboutDialog.show()
 
   # What to do when the about dialog quit button is clicked
   def on_about_dialog_close(self, widget, data=None):
-    self.AboutDialog.hide()
+    self.aboutDialog.hide()
     return True
 
-  # What to do when the exit X on the main window upper right is clicked
+  # What to do when the exit [X] on the main window upper right is clicked
   def gtk_main_quit(self, widget, data=None):
-    if self._lilo:
-      del self._lilo
-    if self._grub2:
-      del self._grub2
+    if self._bootloader:
+      del self._bootloader
     print("Bye _o/")
     gtk.main_quit()
 
@@ -242,31 +224,170 @@ click on this button to install your bootloader."))
   def update_gui_async(self, fct, *args, **kwargs):
     gobject.idle_add(fct, *args, **kwargs)
 
-  def on_bootloader_type_clicked(self, widget, data=None):
-    if widget.get_active():
-      if widget == self.RadioLilo:
-        self.cfg.cur_bootloader = 'lilo'
-        if self._grub2:
-          self._grub2 = None
-        self._lilo = Lilo(self.cfg.is_test)
-        self.LiloPart.show()
-        self.Grub2Part.hide()
+  def on_button_quit_clicked(self, widget, data=None):
+    self.gtk_main_quit(widget)
+
+  def get_previous_wizard_page(self, pageName):
+    prevPage = self.navigation[pageName][0]
+    if hasattr(prevPage, '__call__'):
+      prevPage = prevPage()
+    return prevPage
+
+  def get_next_wizard_page(self, pageName):
+    if pageName:
+      nextPage = self.navigation[pageName][1]
+    else:  # the first page is one that does not have previous page
+      for page, info in self.navigation.iteritems():
+        (prevPage, _) = info
+        if prevPage is None:
+          nextPage = page
+          break
+    if hasattr(nextPage, '__call__'):
+      nextPage = nextPage()
+    return nextPage
+
+  def wizard_go(self, direction='next'):
+    if direction not in ('previous', 'next'):
+      raise Exception('direction should be previous or next')
+    if direction == 'previous':
+      page = self.get_previous_wizard_page(self.wizard_page)
+    else:
+      page = self.get_next_wizard_page(self.wizard_page)
+    for p in self.wizardPages:
+      if p == page:
+        self.wizardPages[p].show()
       else:
-        self.cfg.cur_bootloader = 'grub2'
-        if self._lilo:
-          self._lilo = None
-        self._grub2 = Grub2(self.cfg.is_test)
-        self.LiloPart.hide()
-        self.Grub2Part.show()
-      self.update_buttons()
+        self.wizardPages[p].hide()
+    prevPage = self.get_previous_wizard_page(page)
+    if prevPage:
+      self.quitButton.hide()
+      self.previousButton.show()
+    else:
+      self.quitButton.show()
+      self.previousButton.hide()
+    nextPage = self.get_next_wizard_page(page)
+    if nextPage:
+      self.nextButton.show()
+      self.installButton.hide()
+    else:
+      self.nextButton.hide()
+      self.installButton.show()
+    self.wizard_page = page
+    self.wizard_prepare_page()
+    self.wizard_update_buttons()
+
+  def on_button_previous_clicked(self, widget):
+    self.wizard_go('previous')
+
+  def on_button_next_clicked(self, widget):
+    self.wizard_go('next')
+
+  def wizard_prepare_page(self):
+    if self.wizard_page == 'BootMode':
+      self.radioEfi.set_sensitive(self.cfg.efi_firmware)
+      self.checkSecureBoot.set_active(int(self.cfg.secure_boot))
+      if self.cfg.cur_bootmode is None or self.cfg.cur_bootmode == 'bios':
+        widget = self.radioBios
+      else:
+        widget = self.radioEfi
+      widget.set_active(True)
+      self.on_bootmode_clicked(widget)
+      self.cfg.cur_bootloader = None
+    elif self.wizard_page == 'BiosPartitions':
+      self._set_text_for(self.comboBoxMbrEntry, self.cfg.cur_mbr_device)
+      self._set_text_for(self.comboBoxBiosRootPartitionEntry, self.cfg.cur_root_partition)
+    elif self.wizard_page == 'BiosBootloaders':
+      self.radioGrub2.set_sensitive(Grub2.is_grub2_available(self.cfg.cur_root_partition))
+      if self.cfg.cur_bootloader is None or self.cfg.cur_bootloader == 'lilo':
+        widget = self.radioLilo
+      else:
+        widget = self.radioGrub2
+      widget.set_active(True)
+      self.on_bootloader_bios_clicked(widget)
+    elif self.wizard_page == 'BootConfig':
+      pass  # TODO
+    elif self.wizard_page == 'BiosGrub2':
+      self._set_text_for(self.comboBoxPartitionEntry, self.cfg.cur_boot_partition)
+      self.update_grub2_bios_buttons()
+    elif self.wizard_page == 'EFIPartitions':
+      self._set_text_for(self.comboBoxESPEntry, self.cfg.cur_esp)
+      self._set_text_for(self.comboBoxEfiRootPartitionEntry, self.cfg.cur_root_partition)
+    elif self.wizard_page == 'EFIBootloaders':
+      grub2_avail = Grub2.is_grub2_available(self.cfg.cur_root_partition)
+      self.radioGrub2Efi.set_sensitive(grub2_avail)
+      if self.cfg.cur_bootloader == 'grub2_efi' or (grub2_avail and self.cfg.cur_bootloader is None):
+        widget = self.radioGrub2Efi
+      elif self.cfg.cur_bootloader == 'elilo' or (not grub2_avail and self.cfg.cur_bootloader is None):
+        widget = self.radioELilo
+      else:
+        widget = self.radioGummiBoot
+      widget.set_active(True)
+      self.on_bootloader_efi_clicked(widget)
+    elif self.wizard_page == 'EFIGrub2':
+      pass
+    elif self.wizard_page == 'Summary':
+      self.installSummary.set_text('TODO')  # TODO
+
+  def wizard_update_buttons(self):
+    nextOk = self.wizard_validate_page()
+    self.nextButton.set_sensitive(nextOk)
+    self.installButton.set_sensitive(nextOk)
+
+  def wizard_validate_page(self):
+    if self._editing:
+      return False
+    if self.wizard_page in ('BootMode', 'BiosBootloaders', 'EFIBootloaders', 'EFIGrub2'):
+      return True
+    elif self.wizard_page == 'BiosPartitions':
+      mbr_ok = bool(self.cfg.cur_mbr_device) and os.path.exists(os.path.join(os.path.sep, 'dev', self.cfg.cur_mbr_device)) and bool(slt.getDiskInfo(self.cfg.cur_mbr_device))
+      root_ok = bool(self.cfg.cur_root_partition) and os.path.exists(os.path.join(os.path.sep, 'dev', self.cfg.cur_root_partition)) and bool(slt.getPartitionInfo(self.cfg.cur_root_partition))
+      return mbr_ok and root_ok
+    elif self.wizard_page == 'BootConfig':
+      return self.customEditButton.get_sensitive()
+    elif self.wizard_page == 'BiosGrub2':
+      return bool(self.cfg.cur_boot_partition) and os.path.exists(os.path.join(os.path.sep, 'dev', self.cfg.cur_boot_partition)) and bool(slt.getPartitionInfo(self.cfg.cur_boot_partition))
+    elif self.wizard_page == 'EFIPartitions':
+      esp_ok = bool(self.cfg.cur_esp) and os.path.exists(os.path.join(os.path.sep, 'dev', self.cfg.cur_esp)) and self.cfg.cur_esp in [p[0] for p in self.cfg.esp]
+      root_ok = bool(self.cfg.cur_root_partition) and os.path.exists(os.path.join(os.path.sep, 'dev', self.cfg.cur_root_partition)) and bool(slt.getPartitionInfo(self.cfg.cur_root_partition))
+      return esp_ok and root_ok
+    elif self.wizard_page == 'Summary':
+      return False  # TODO
+
+  def on_bootmode_clicked(self, widget, data=None):
+    if widget.get_active():
+      if widget == self.radioBios:
+        self.cfg.cur_bootmode = 'bios'
+        self.checkSecureBoot.hide()
+      else:
+        self.cfg.cur_bootmode = 'efi'
+        self.checkSecureBoot.show()
+    self.wizard_update_buttons()
+
+  def on_checkbutton_secureboot_toggled(self, widget, data=None):
+    self.cfg.secure_boot = bool(widget.get_active())
+    self.wizard_update_buttons()
 
   def on_combobox_mbr_changed(self, widget, data=None):
-    self.cfg.cur_mbr_device = self.ComboBoxMbrEntry.get_text()
-    self.update_buttons()
+    self.cfg.cur_mbr_device = self.comboBoxMbrEntry.get_text()
+    self.wizard_update_buttons()
+
+  def on_combobox_bios_root_partition_changed(self, widget, data=None):
+    self.cfg.cur_root_partition = self.comboBoxBiosRootPartitionEntry.get_text()
+    self.wizard_update_buttons()
+
+  def on_bootloader_bios_clicked(self, widget, data=None):
+    if widget.get_active():
+      if widget == self.radioLilo:
+        self.cfg.cur_bootloader = 'lilo'
+        self._bootloader = Lilo(self.cfg.is_test)
+      else:
+        self.cfg.cur_bootloader = 'grub2'
+        self._bootloader = Grub2(self.cfg.is_test)
+    self.wizard_update_buttons()
 
   def set_editing_mode(self, is_edit):
     self._editing = is_edit
-    self.update_buttons()
+    self.update_grid_buttons()
 
   def on_label_cellrenderercombo_editing_started(self, widget, path, data):
     self.set_editing_mode(True)
@@ -282,7 +403,7 @@ click on this button to install your bootloader."))
     elif len(new_text) > max_chars:
       self._bootsetup.error_dialog(_("\nAn Operating System label should not be more than {max} characters long.\n\nPlease check and correct.\n".format(max=max_chars)))
     else:
-      model, it = self.BootPartitionTreeview.get_selection().get_selected()
+      model, it = self.bootPartitionTreeview.get_selection().get_selected()
       found = False
       for i, line in enumerate(model):
         if i == row_number or line[3] == _("Set..."):
@@ -306,7 +427,7 @@ click on this button to install your bootloader."))
 
     """
     # Obtain selection
-    sel = self.BootPartitionTreeview.get_selection()
+    sel = self.bootPartitionTreeview.get_selection()
     # Get selected path
     (model, rows) = sel.get_selected_rows()
     if not rows:
@@ -329,7 +450,7 @@ click on this button to install your bootloader."))
 
     """
     # Obtain selection
-    sel = self.BootPartitionTreeview.get_selection()
+    sel = self.bootPartitionTreeview.get_selection()
     # Get selected path
     (model, rows) = sel.get_selected_rows()
     if not rows:
@@ -350,10 +471,10 @@ click on this button to install your bootloader."))
       return
     model.swap(iter1, iter2)
 
-  def _create_lilo_config(self):
+  def _create_boot_config(self):
     partitions = []
     self.cfg.cur_boot_partition = None
-    for row in self.BootPartitionListStore:
+    for row in self.bootPartitionListStore:
       p = list(row)
       if p[4] == "gtk-yes":
         dev = p[0]
@@ -368,62 +489,111 @@ click on this button to install your bootloader."))
           self.cfg.cur_boot_partition = dev
         partitions.append([dev, fs, t, label])
     if self.cfg.cur_boot_partition:
-      self._lilo.createConfiguration(self.cfg.cur_mbr_device, self.cfg.cur_boot_partition, partitions)
+      self._bootloader.createConfiguration(self.cfg.cur_mbr_device, self.cfg.cur_esp, self.cfg.cur_boot_partition, partitions)
     else:
-      self._bootsetup.error_dialog(_("Sorry, BootSetup is unable to find a Linux filesystem on your choosen boot entries, so cannot install LiLo.\n"))
+      self._bootsetup.error_dialog(_("Sorry, BootSetup is unable to find a Linux filesystem on your choosen boot entries, so cannot install {0}.\n").format(self.cfg.cur_bootloader))
 
-  def on_lilo_edit_button_clicked(self, widget, data=None):
-    lilocfg = self._lilo.getConfigurationPath()
-    if not os.path.exists(lilocfg):
-      self._custom_lilo = True
-      self.update_buttons()
-      self._create_lilo_config()
-    if os.path.exists(lilocfg):
-      launched = False
-      for editor in self._editors:
-        try:
-          cmd = editor.split(' ') + [lilocfg]
-          slt.execCall(cmd, shell=True, env=None)
-          launched = True
-          break
-        except:
-          pass
-      if not launched:
-        self._custom_lilo = False
-        self._bootsetup.error_dialog(_("Sorry, BootSetup is unable to find a suitable text editor in your system. You will not be able to manually modify the LiLo configuration.\n"))
+  def _edit_file(self, filename):
+    launched = False
+    for editor in ('leafpad', 'gedit', 'geany', 'kate', 'xterm -e nano'):
+      try:
+        cmd = editor.split(' ').append(filename)
+        slt.execCall(cmd, shell=True, env=None)
+        launched = True
+        break
+      except:
+        pass
+    return launched
 
-  def on_lilo_undo_button_clicked(self, widget, data=None):
-    lilocfg = self._lilo.getConfigurationPath()
-    if os.path.exists(lilocfg):
-      os.remove(lilocfg)
-    self._custom_lilo = False
-    self.update_buttons()
+  def on_custom_edit_button_clicked(self, widget, data=None):
+    custom_cfg = self._bootloader.getConfigurationPath()
+    if not os.path.exists(custom_cfg):
+      self._custom_config = True
+      self.update_grid_buttons()
+      self._create_boot_config()
+    if os.path.exists(custom_cfg):
+      if not self._edit_file(custom_cfg):
+        self._custom_config = False
+        self.update_grid_buttons()
+        self._bootsetup.error_dialog(_("Sorry, BootSetup is unable to find a suitable text editor in your system. You will not be able to manually modify the {bootloader} configuration.\n").format(bootloader=self.cfg.cur_bootloader))
+
+  def on_custom_undo_button_clicked(self, widget, data=None):
+    custom_cfg = self._bootloader.getConfigurationPath()
+    if os.path.exists(custom_cfg):
+      os.remove(custom_cfg)
+    self._custom_config = False
+    self.update_grid_buttons()
+
+  def update_grid_buttons(self):
+    multiple = len(self.bootPartitionListStore) > 1
+    labels_ok = True
+    for bp in self.bootPartitionListStore:
+      if bp[4] != "gtk-yes":
+        labels_ok = False
+        break
+    self.bootPartitionTreeview.set_sensitive(not self._custom_config)
+    self.upButton.set_sensitive(not self._editing and multiple)
+    self.downButton.set_sensitive(not self._editing and multiple)
+    self.customUndoButton.set_sensitive(not self._editing and self._custom_config)
+    self.customEditButton.set_sensitive(not self._editing and labels_ok)
+    self.wizard_update_buttons()
 
   def on_combobox_partition_changed(self, widget, data=None):
-    self.cfg.cur_boot_partition = self.ComboBoxPartitionEntry.get_text()
-    self.update_buttons()
+    self.cfg.cur_boot_partition = self.comboBoxPartitionEntry.get_text()
+    self.update_grub2_bios_buttons()
 
-  def on_grub2_edit_button_clicked(self, widget, data=None):
-    partition = os.path.join("/dev", self.cfg.cur_boot_partition)
+  def on_grub2_bios_edit_button_clicked(self, widget, data=None):
+    partition = os.path.join(os.path.sep, 'dev', self.cfg.cur_boot_partition)
     if slt.isMounted(partition):
       mp = slt.getMountPoint(partition)
       doumount = False
     else:
       mp = slt.mountDevice(partition)
       doumount = True
-    grub2cfg = os.path.join(mp, "etc/default/grub")
+    grub2cfg = os.path.join(mp, 'etc', 'default', 'grub')
     if os.path.exists(grub2cfg):
-      launched = False
-      for editor in self._editors:
-        try:
-          cmd = editor.split(' ') + [grub2cfg]
-          slt.execCall(cmd, shell=True, env=None)
-          launched = True
-          break
-        except:
-          pass
-      if not launched:
-        self._bootsetup.error_dialog(_("Sorry, BootSetup is unable to find a suitable text editor in your system. You will not be able to manually modify the Grub2 default configuration.\n"))
+      if not self._edit_file(grub2cfg):
+        self._bootsetup.error_dialog(_("Sorry, BootSetup is unable to find a suitable text editor in your system. You will not be able to manually modify the {bootloader} configuration.\n").format(bootloader='Grub2'))
+    if doumount:
+      slt.umountDevice(mp)
+
+  def update_grub2_bios_buttons(self):
+    self.grub2BiosEditButton.set_sensitive(os.path.exists(os.path.join(os.path.sep, 'dev', self.cfg.cur_boot_partition)))
+    self.wizard_update_buttons()
+
+  def on_combobox_esp_changed(self, widget, data=None):
+    self.cfg.cur_esp = self.comboBoxESPEntry.get_text()
+    self.wizard_update_buttons()
+
+  def on_combobox_efi_root_partition_changed(self, widget, data=None):
+    self.cfg.cur_root_partition = self.comboBoxEfiRootPartitionEntry.get_text()
+    self.wizard_update_buttons()
+
+  def on_bootloader_efi_clicked(self, widget, data=None):
+    if widget.get_active():
+      if widget == self.radioGrub2Efi:
+        self.cfg.cur_bootloader = 'grub2_efi'
+        self._bootloader = Grub2(self.cfg.is_test)
+      elif widget == self.radioELilo:
+        self.cfg.cur_bootloader = 'elilo'
+        self._bootloader = ELilo(self.cfg.is_test)
+      else:
+        self.cfg.cur_bootloader = 'gummiboot'
+        self._bootloader = GummiBoot(self.cfg.is_test)
+    self.wizard_update_buttons()
+
+  def on_grub2_efi_edit_button_clicked(self, widget, data=None):
+    partition = os.path.join(os.path.sep, 'dev', self.cfg.cur_esp)
+    if slt.isMounted(partition):
+      mp = slt.getMountPoint(partition)
+      doumount = False
+    else:
+      mp = slt.mountDevice(partition)
+      doumount = True
+    grub2cfg = os.path.join(mp, 'EFI', 'Boot', 'grub', 'grub.cfg')
+    if os.path.exists(grub2cfg):
+      if not self._edit_file(grub2cfg):
+        self._bootsetup.error_dialog(_("Sorry, BootSetup is unable to find a suitable text editor in your system. You will not be able to manually modify the {bootloader} configuration.\n").format(bootloader='Grub2'))
     if doumount:
       slt.umountDevice(mp)
 
@@ -460,16 +630,20 @@ click on this button to install your bootloader."))
     self.DownButton.set_sensitive(not self._editing and multiple)
     self.LiloUndoButton.set_sensitive(not self._editing and self._custom_lilo)
     self.LiloEditButton.set_sensitive(not self._editing and install_ok)
-    self.Grub2EditButton.set_sensitive(grub2_edit_ok)
+    self.Grub2BiosEditButton.set_sensitive(grub2_edit_ok)
     self.ExecuteButton.set_sensitive(not self._editing and install_ok)
 
   def on_execute_button_clicked(self, widget, data=None):
     if self.cfg.cur_bootloader == 'lilo':
       if not os.path.exists(self._lilo.getConfigurationPath()):
-        self._create_lilo_config()
+        self._create_boot_config()
       self._lilo.install()
     elif self.cfg.cur_bootloader == 'grub2':
       self._grub2.install(self.cfg.cur_mbr_device, self.cfg.cur_boot_partition)
+    elif self.cfg.cur_bootloader == 'elilo':
+      self._elilo.install(self.cfg.cur_mbr_device, self.cfg.cur_boot_partition)
+    elif self.cfg.cur_bootloader == 'gummiboot':
+      self._gummiboot.install(self.cfg.cur_mbr_device, self.cfg.cur_boot_partition)
     self.installation_done()
 
   def installation_done(self):
@@ -477,3 +651,78 @@ click on this button to install your bootloader."))
     msg = "<b>{0}</b>".format(_("Bootloader installation process completed."))
     self._bootsetup.info_dialog(msg)
     self.gtk_main_quit(self.Window)
+
+  # General contextual help
+  def on_leave_notify_event(self, widget, data=None):
+    self.contextualHelp.set_markup(self.context_intro)
+
+  def on_about_button_enter_notify_event(self, widget, data=None):
+    self.contextualHelp.set_text(_("About BootSetup."))
+
+  def on_bootloader_bootmode_enter_notify_event(self, widget, data=None):
+    self.contextualHelp.set_markup(_("You need a bootloader to load an OS for you computer.\n\
+Two boot modes exists to run a bootloader. EFI is the new one. Use this if possible."))
+
+  def on_bootloader_type_enter_notify_event(self, widget, data=None):
+    self.contextualHelp.set_markup(_("Here you can choose between LiLo or the Grub2 bootloader.\n\
+Both will boot your Linux and (if applicable) Windows.\n\
+LiLo is the old way but still works pretty well. A good choice if you have a simple setup.\n\
+Grub2 is a full-featured bootloader and more robust (does not rely on blocklists)."))
+
+  def on_bootloader_typeefi_enter_notify_event(self, widget, data=None):
+    self.contextualHelp.set_markup(_("Here you can choose between ELiLo, Grub2 or the GummiBoot bootloader.\n\
+ELiLo can only boot Linux. Grub2 can boot anything. GummiBoot can boot EFI applications/OS only.\n\
+Use ELiLo only if you know you will using only one Linux OS and no Windows.\n\
+Grub2 discover new installed OS automatically."))
+
+  def on_combobox_mbr_enter_notify_event(self, widget, data=None):
+    self.contextualHelp.set_markup(_("Select the device that will contain your bootloader.\n\
+This is commonly the device you set your Bios to boot on."))
+
+  def on_boot_partition_treeview_enter_notify_event(self, widget, data=None):
+    self.contextualHelp.set_markup(_("Here you must define a boot menu label for each \
+of the operating systems that will be displayed in your bootloader menu.\n\
+Any partition for which you do not set a boot menu label will not be configured and will \
+not be displayed in the bootloader menu.\n\
+If several kernels are available within one partition, the label you have chosen for that \
+partition will be appended numerically to create multiple menu entries for each of these kernels.\n\
+Any of these settings can be edited manually in the configuration file."))
+
+  def on_up_button_enter_notify_event(self, widget, data=None):
+    self.contextualHelp.set_markup(_("Use this arrow if you want to move the \
+selected Operating System up to a higher rank.\n\
+The partition with the highest rank will be displayed on the first line of the bootloader menu.\n\
+Any of these settings can be edited manually in the configuration file."))
+
+  def on_down_button_enter_notify_event(self, widget, data=None):
+    self.contextualHelp.set_markup(_("Use this arrow if you want to move the \
+selected Operating System down to a lower rank.\n\
+The partition with the lowest rank will be displayed on the last line of the bootloader menu.\n\
+Any of these settings can be edited manually in the configuration file."))
+
+  def on_lilo_undo_button_enter_notify_event(self, widget, data=None):
+    self.contextualHelp.set_markup(_("This will undo all settings (even manual modifications)."))
+
+  def on_lilo_edit_button_enter_notify_event(self, widget, data=None):
+    self.contextualHelp.set_markup(_("Experienced users can \
+manually edit the LiLo configuration file.\n\
+Please do not tamper with this file unless you know what you are doing and you have \
+read its commented instructions regarding chrooted paths."))
+
+  def on_combobox_partition_enter_notify_event(self, widget, data=None):
+    self.contextualHelp.set_markup(_("Select the partition that will contain the Grub2 files.\n\
+These will be in /boot/grub/. This partition should be readable by Grub2.\n\
+It is recommanded to use your / partition, or your /boot partition if you have one."))
+
+  def on_grub2_edit_button_enter_notify_event(self, widget, data=None):
+    self.contextualHelp.set_markup(_("You can edit the etc/default/grub file for \
+adjusting the Grub2 settings.\n\
+This will not let you choose the label or the order of the menu entries, \
+it's automatically done by Grub2."))
+
+  def on_button_quit_enter_notify_event(self, widget, data=None):
+    self.contextualHelp.set_text(_("Exit BootSetup program."))
+
+  def on_execute_button_enter_notify_event(self, widget, data=None):
+    self.contextualHelp.set_markup(_("Once you have defined your settings, \
+click on this button to install your bootloader."))

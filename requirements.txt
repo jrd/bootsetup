@@ -1,2 +1,3 @@
 pylibsalt>=0.1.0
 UrwidMore>=0.1.0
+pyreadpartitions>=1.0.0

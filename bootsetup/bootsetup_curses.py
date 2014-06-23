@@ -27,7 +27,7 @@ class BootSetupCurses(BootSetup):
     if os.getuid() != 0:
       self.error_dialog(_("Root privileges are required to run this program."), _("Sorry!"))
       sys.exit(1)
-    self.gc = GatherCurses(self, self._bootloader, self._targetPartition, self._isTest, self._useTestData)
+    self.gc = GatherCurses(self, self._isTest, self._useTestData, self._target_partition)
     self.gc.run()
 
   def _show_ui_dialog(self, dialog, parent=None):

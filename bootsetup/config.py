@@ -10,7 +10,9 @@ import sys
 import re
 import codecs
 import os
+from glob import glob
 import libsalt as slt
+from .efi import EFI
 
 
 class Config:
@@ -20,19 +22,24 @@ class Config:
   disks = []
   partitions = []
   boot_partitions = []
+  efi_firmware = False
+  esp = []
+  cur_bootmode = None
   cur_bootloader = None
-  cur_boot_partition = None
   cur_mbr_device = None
+  cur_esp = None
+  cur_root_partition = None  # for binaries and config files
+  secure_boot = False
   is_test = False
   use_test_data = False
+  target_partition = None
   is_live = False
 
-  def __init__(self, bootloader, target_partition, is_test, use_test_data):
-    self.cur_bootloader = bootloader
-    self.cur_boot_partition = target_partition and re.sub(r'/dev/', '', target_partition) or ''
-    self.cur_mbr_device = ''
+  def __init__(self, is_test, use_test_data, target_partition=None):
+    self._efi = EFI(is_test)
     self.is_test = is_test
     self.use_test_data = use_test_data
+    self.target_partition = target_partition
     self._get_current_config()
 
   def __debug(self, msg):
@@ -66,8 +73,11 @@ class Config:
         ['sda1', 'ntfs', 'chain', 'Windows', 'Vista'],
         ['sdb2', 'ext4', 'linux', 'Debian', 'Debian 7']
       ]
-      if not self.cur_boot_partition:
-        self.cut_boot_partition = 'sda5'
+      self.efi_firmware = True
+      self.esp = [
+        ['sda2', 'fat32', 'EFI System partition (100MB)']
+      ]
+      self.secure_boot = True
     else:
       self.disks = []
       self.partitions = []
@@ -123,11 +133,39 @@ class Config:
         except IndexError:
           probe_fstype = ''
         self.boot_partitions.append([probe_dev, probe_fstype, probe_boottype, probe_os, probe_label])
-    if self.cur_boot_partition:
-      # use the disk of that partition.
-      self.cur_mbr_device = re.sub(r'^(.+?)[0-9]*$', r'\1', self.cur_boot_partition)
-    elif len(self.disks) > 0:
-      # use the first disk.
-      self.cur_mbr_device = self.disks[0][0]
+      self.efi_firmware = self._efi.has_efi_firmware()
+      for esp in self._efi.find_efi_partitions():
+        esp = esp.replace('/dev/', '')
+        # reuse information from self.partitions to complete the list
+        for p in self.partitions:
+          if p[0] == esp:
+            self.esp.append(p)
+            break
+        else:
+          self.esp.append([esp, '', ''])
+      self.secure_boot = self.efi_firmware and bool(self.esp)
+      # guess cur_root_partition, cur_mbr_device and cur_esp from target_partition argument or environment.
+      if self.is_live:
+        if self.target_partition:
+          self.cur_root_partition = re.sub(r'^/dev/', r'', self.target_partition)
+      else:
+        if self.target_partition:
+          self.cur_root_partition = re.sub(r'^/dev/', r'', self.target_partition)
+        else:
+          try:
+            dev = os.stat('/').st_dev
+            majorMinor = '{0}:{1}'.format(os.major(dev), os.minor(dev))
+            self.cur_root_partition = [os.path.basename(os.path.dirname(f)) for f in glob('/sys/class/block/*/dev') if open(f).read().strip() == majorMinor][0]
+          except:
+            pass
+      if self.cur_root_partition:
+        self.cur_mbr_device = re.sub(r'[0-9]+$', '', self.cur_root_partition)
+        for p in sorted(self.esp):
+          if re.match(r'^{0}[0-9]+$'.format(self.cur_mbr_device), p[0]):
+            self.cur_esp = p[0]
+            break
     print(' Done')
     sys.stdout.flush()
+
+  def have_esp(self):
+    return bool(self.esp)

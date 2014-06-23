@@ -19,12 +19,11 @@ class BootSetup:
 
   __metaclass__ = abc.ABCMeta
 
-  def __init__(self, appName, bootloader, targetPartition, isTest, useTestData):
+  def __init__(self, appName, isTest, useTestData, target_partition):
     self._appName = appName
-    self._bootloader = bootloader
-    self._targetPartition = targetPartition
     self._isTest = isTest
     self._useTestData = useTestData
+    self._target_partition = target_partition
     print("BootSetup v{ver}".format(ver=__version__))
 
   @abc.abstractmethod
@@ -56,19 +55,14 @@ def usage():
 {license}
 {author}
 
-  bootsetup.py [--help] [--version] [--test [--data]] [bootloader] [partition]
+  bootsetup.py [--help] [--version] [--test [--data]] [target_partition]
 
 Parameters:
   --help: Show this help message
   --version: Show the BootSetup version
   --test: Run it in test mode
     --data: Run it with some pre-filled data
-  bootloader: could be lilo or grub2, by default nothing is proposed. You could use "_" to tell it's undefined.
-  partition: target partition to install the bootloader.
-    The disk of that partition is, by default, where the bootloader will be installed
-    The partition will be guessed by default if not specified:
-      ⋅ First Linux selected partition of the selected disk for LiLo.
-      ⋅ First Linux partition, in order, of the selected disk for Grub2. This could be changed in the UI.
+  target_partition is where the system is installed, device for / by default if not live
 """.format(ver=__version__, copyright=__copyright__, license=__license__, author=__author__))
 
 
@@ -95,7 +89,6 @@ def main(args=sys.argv[1:]):
   is_graphic = bool(os.environ.get('DISPLAY'))
   is_test = False
   use_test_data = False
-  bootloader = None
   target_partition = None
   gettext.install(domain=__app__, localedir=find_locale_dir(), unicode=True)
   for arg in args:
@@ -115,23 +108,15 @@ def main(args=sys.argv[1:]):
       elif arg[0] == '-':
         die(_("Unrecognized parameter '{0}'.").format(arg))
       else:
-        if bootloader is None:
-          bootloader = arg
-        elif target_partition is None:
+        if not target_partition and '/dev/' in arg and os.path.exists(arg):
           target_partition = arg
         else:
           die(_("Unrecognized parameter '{0}'.").format(arg))
-  if bootloader not in ('lilo', 'grub2', '_', None):
-    die(_("bootloader parameter should be lilo, grub2 or '_', given {0}.").format(bootloader))
-  if bootloader == '_':
-    bootloader = None
-  if target_partition and not os.path.exists(target_partition):
-    die(_("Partition {0} not found.").format(target_partition))
   if is_graphic:
     from .bootsetup_gtk import BootSetupGtk as BootSetupImpl
   else:
     from .bootsetup_curses import BootSetupCurses as BootSetupImpl
-  bootsetup = BootSetupImpl(__app__, bootloader, target_partition, is_test, use_test_data)
+  bootsetup = BootSetupImpl(__app__, is_test, use_test_data, target_partition)
   bootsetup.run_setup()
 
 

@@ -146,6 +146,7 @@ class install_data(install_data_class):
       self.data_files.append((icon_dest, [icon]))
     doc_dir = os.path.join('doc', '{0}-{1}'.format(MODULE_NAME, find_version(MODULE_NAME)))
     self.data_files.append((doc_dir, glob(os.path.join('docs', '*'))))
+    self.data_files.append((os.path.join('share', MODULE_NAME), glob(os.path.join('resources', 'efi', '*'))))
     print('data_files', self.data_files)
     install_data_class.run(self)
 

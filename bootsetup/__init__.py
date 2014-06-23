@@ -13,4 +13,4 @@ __credits__ = ['Cyrille Pontvieux', 'Pierrick Le Brun']
 __maintainer__ = 'Cyrille Pontvieux'
 __email__ = 'jrd@salixos.org'
 __license__ = 'GPLv2+'
-__version__ = '0.1'
+__version__ = '0.2'

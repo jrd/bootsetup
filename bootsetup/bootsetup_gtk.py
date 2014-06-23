@@ -28,7 +28,7 @@ class BootSetupGtk(BootSetup):
     if not (self._isTest and self._useTestData) and os.getuid() != 0:
       self.error_dialog(_("Root privileges are required to run this program."), _("Sorry!"))
       sys.exit(1)
-    gg = GatherGui(self, self._bootloader, self._targetPartition, self._isTest, self._useTestData)
+    gg = GatherGui(self, self._isTest, self._useTestData, self._target_partition)
     gg.run()
 
   def info_dialog(self, message, title=None, parent=None):
