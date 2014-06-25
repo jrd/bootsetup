@@ -19,7 +19,7 @@ from .lilo import Lilo
 from .grub2 import Grub2
 
 
-class GatherCurses:
+class GatherCurses(object):
   """
   UI in curses/urwid to gather information about the configuration to setup.
   """

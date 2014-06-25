@@ -15,7 +15,7 @@ import sys
 import gettext
 
 
-class BootSetup:
+class BootSetup(object):
 
   __metaclass__ = abc.ABCMeta
 

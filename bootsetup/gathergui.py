@@ -23,7 +23,7 @@ from .elilo import ELilo
 from .gummiboot import GummiBoot
 
 
-class GatherGui:
+class GatherGui(object):
   """
   GUI to gather information about the configuration to setup.
   """
@@ -35,12 +35,6 @@ class GatherGui:
   def __init__(self, bootsetup, is_test=False, use_test_data=False, target_partition=None):
     self._bootsetup = bootsetup
     self.cfg = Config(is_test, use_test_data, target_partition)
-    print("""
-disks:{disks}
-partitions:{partitions}
-possible boot partitions:{boot_partitions}
-possible efi system partitions:{esp}
-""".format(disks="\n - " + "\n - ".join(map(" ".join, self.cfg.disks)), partitions="\n - " + "\n - ".join(map(" ".join, self.cfg.partitions)), boot_partitions="\n - " + "\n - ".join(map(" ".join, self.cfg.boot_partitions)), esp="\n - " + "\n - ".join(map(" ".join, self.cfg.esp))))
     builder = gtk.Builder()
     if os.path.exists('bootsetup.glade'):
       builder.add_from_file('bootsetup.glade')
@@ -156,6 +150,10 @@ a boot menu if several operating systems are available on the same computer.")
     # start the main gtk loop
     gtk.main()
 
+  def _printCfg(self):
+    if self.cfg and self.cfg.is_test:
+      print(self.cfg)
+
   def _add_combobox_cell_renderer(self, comboBox, modelPosition, start=False, expand=False, padding=0):
     cell = gtk.CellRendererText()
     cell.set_property('xalign', 0)
@@ -186,7 +184,7 @@ a boot menu if several operating systems are available on the same computer.")
     for p in self.cfg.boot_partitions:  # for lilo, elilo, gummiboot
       p2 = list(p)  # copy p
       del p2[2]  # discard boot type
-      p2[3] = re.sub(r'[()]', '', re.sub(r'_\(loader\)', '', re.sub(' ', '_', p2[3])))  # lilo does not like spaces and pretty print the label
+      p2[3] = re.sub(r'[()]', '', re.sub(r'_\(loader\)', '', re.sub(' ', '_', p2[3])))  # bootloader usually does not like spaces in labels
       p2.append('gtk-edit')  # add a visual
       self.bootPartitionListStore.append(p2)
     for p in self.cfg.esp:  # for EFI
@@ -283,6 +281,7 @@ a boot menu if several operating systems are available on the same computer.")
     self.wizard_go('next')
 
   def wizard_prepare_page(self):
+    self._printCfg()
     if self.wizard_page == 'BootMode':
       self.radioEfi.set_sensitive(self.cfg.efi_firmware)
       self.checkSecureBoot.set_active(int(self.cfg.secure_boot))
@@ -305,9 +304,9 @@ a boot menu if several operating systems are available on the same computer.")
       widget.set_active(True)
       self.on_bootloader_bios_clicked(widget)
     elif self.wizard_page == 'BootConfig':
-      pass  # TODO
+      pass  # nothing to setup here.
     elif self.wizard_page == 'BiosGrub2':
-      self._set_text_for(self.comboBoxPartitionEntry, self.cfg.cur_boot_partition)
+      self._set_text_for(self.comboBoxPartitionEntry, self.cfg.cur_root_partition)
       self.update_grub2_bios_buttons()
     elif self.wizard_page == 'EFIPartitions':
       self._set_text_for(self.comboBoxESPEntry, self.cfg.cur_esp)
@@ -345,7 +344,7 @@ a boot menu if several operating systems are available on the same computer.")
     elif self.wizard_page == 'BootConfig':
       return self.customEditButton.get_sensitive()
     elif self.wizard_page == 'BiosGrub2':
-      return bool(self.cfg.cur_boot_partition) and os.path.exists(os.path.join(os.path.sep, 'dev', self.cfg.cur_boot_partition)) and bool(slt.getPartitionInfo(self.cfg.cur_boot_partition))
+      return bool(self.cfg.cur_root_partition) and os.path.exists(os.path.join(os.path.sep, 'dev', self.cfg.cur_root_partition)) and bool(slt.getPartitionInfo(self.cfg.cur_root_partition))
     elif self.wizard_page == 'EFIPartitions':
       esp_ok = bool(self.cfg.cur_esp) and os.path.exists(os.path.join(os.path.sep, 'dev', self.cfg.cur_esp)) and self.cfg.cur_esp in [p[0] for p in self.cfg.esp]
       root_ok = bool(self.cfg.cur_root_partition) and os.path.exists(os.path.join(os.path.sep, 'dev', self.cfg.cur_root_partition)) and bool(slt.getPartitionInfo(self.cfg.cur_root_partition))
@@ -473,7 +472,6 @@ a boot menu if several operating systems are available on the same computer.")
 
   def _create_boot_config(self):
     partitions = []
-    self.cfg.cur_boot_partition = None
     for row in self.bootPartitionListStore:
       p = list(row)
       if p[4] == "gtk-yes":
@@ -485,13 +483,8 @@ a boot menu if several operating systems are available on the same computer.")
             t = p2[2]
             break
         label = p[3]
-        if not self.cfg.cur_boot_partition and t == 'linux':
-          self.cfg.cur_boot_partition = dev
         partitions.append([dev, fs, t, label])
-    if self.cfg.cur_boot_partition:
-      self._bootloader.createConfiguration(self.cfg.cur_mbr_device, self.cfg.cur_esp, self.cfg.cur_boot_partition, partitions)
-    else:
-      self._bootsetup.error_dialog(_("Sorry, BootSetup is unable to find a Linux filesystem on your choosen boot entries, so cannot install {0}.\n").format(self.cfg.cur_bootloader))
+    self._bootloader.createConfiguration(self.cfg.cur_mbr_device, self.cfg.cur_esp, self.cfg.cur_root_partition, partitions)
 
   def _edit_file(self, filename):
     launched = False
@@ -539,11 +532,11 @@ a boot menu if several operating systems are available on the same computer.")
     self.wizard_update_buttons()
 
   def on_combobox_partition_changed(self, widget, data=None):
-    self.cfg.cur_boot_partition = self.comboBoxPartitionEntry.get_text()
+    self.cfg.cur_root_partition = self.comboBoxPartitionEntry.get_text()
     self.update_grub2_bios_buttons()
 
   def on_grub2_bios_edit_button_clicked(self, widget, data=None):
-    partition = os.path.join(os.path.sep, 'dev', self.cfg.cur_boot_partition)
+    partition = os.path.join(os.path.sep, 'dev', self.cfg.cur_root_partition)
     if slt.isMounted(partition):
       mp = slt.getMountPoint(partition)
       doumount = False
@@ -551,14 +544,18 @@ a boot menu if several operating systems are available on the same computer.")
       mp = slt.mountDevice(partition)
       doumount = True
     grub2cfg = os.path.join(mp, 'etc', 'default', 'grub')
-    if os.path.exists(grub2cfg):
-      if not self._edit_file(grub2cfg):
-        self._bootsetup.error_dialog(_("Sorry, BootSetup is unable to find a suitable text editor in your system. You will not be able to manually modify the {bootloader} configuration.\n").format(bootloader='Grub2'))
-    if doumount:
-      slt.umountDevice(mp)
+    try:
+      if os.path.exists(grub2cfg):
+        if not self._edit_file(grub2cfg):
+          self._bootsetup.error_dialog(_("Sorry, BootSetup is unable to find a suitable text editor in your system. You will not be able to manually modify the {bootloader} configuration.\n").format(bootloader='Grub2'))
+      else:
+        self._bootsetup.error_dialog(_("Sorry, etc/default/grub seems to be missing in {device}.\n").format(device=self.cfg.cur_root_partition))
+    finally:  # be sure to go here even if an unexpected exception occured
+      if doumount:
+        slt.umountDevice(mp)
 
   def update_grub2_bios_buttons(self):
-    self.grub2BiosEditButton.set_sensitive(os.path.exists(os.path.join(os.path.sep, 'dev', self.cfg.cur_boot_partition)))
+    self.grub2BiosEditButton.set_sensitive(os.path.exists(os.path.join(os.path.sep, 'dev', self.cfg.cur_root_partition)))
     self.wizard_update_buttons()
 
   def on_combobox_esp_changed(self, widget, data=None):
@@ -573,13 +570,13 @@ a boot menu if several operating systems are available on the same computer.")
     if widget.get_active():
       if widget == self.radioGrub2Efi:
         self.cfg.cur_bootloader = 'grub2_efi'
-        self._bootloader = Grub2(self.cfg.is_test)
+        self._bootloader = Grub2(self.cfg.is_test, self.cfg.secure_boot)
       elif widget == self.radioELilo:
         self.cfg.cur_bootloader = 'elilo'
-        self._bootloader = ELilo(self.cfg.is_test)
+        self._bootloader = ELilo(self.cfg.is_test, self.cfg.secure_boot)
       else:
         self.cfg.cur_bootloader = 'gummiboot'
-        self._bootloader = GummiBoot(self.cfg.is_test)
+        self._bootloader = GummiBoot(self.cfg.is_test, self.cfg.secure_boot)
     self.wizard_update_buttons()
 
   def on_grub2_efi_edit_button_clicked(self, widget, data=None):
@@ -609,17 +606,17 @@ a boot menu if several operating systems are available on the same computer.")
           if bp[4] == "gtk-yes":
             install_ok = True
       elif self.cfg.cur_bootloader == 'grub2':
-        if self.cfg.cur_boot_partition and os.path.exists("/dev/{0}".format(self.cfg.cur_boot_partition)) and slt.getPartitionInfo(self.cfg.cur_boot_partition):
+        if self.cfg.cur_root_partition and os.path.exists(os.path.sep, 'dev', self.cfg.cur_root_partition) and slt.getPartitionInfo(self.cfg.cur_root_partition):
           install_ok = True
         if install_ok:
-          partition = os.path.join("/dev", self.cfg.cur_boot_partition)
+          partition = os.path.join("/dev", self.cfg.cur_root_partition)
           if slt.isMounted(partition):
             mp = slt.getMountPoint(partition)
             doumount = False
           else:
             mp = slt.mountDevice(partition)
             doumount = True
-          grub2_edit_ok = os.path.exists(os.path.join(mp, "etc/default/grub"))
+          grub2_edit_ok = os.path.exists(os.path.join(mp, 'etc', 'default', 'grub'))
           if doumount:
             slt.umountDevice(mp)
     self.RadioLilo.set_sensitive(not self._editing)
@@ -639,11 +636,11 @@ a boot menu if several operating systems are available on the same computer.")
         self._create_boot_config()
       self._lilo.install()
     elif self.cfg.cur_bootloader == 'grub2':
-      self._grub2.install(self.cfg.cur_mbr_device, self.cfg.cur_boot_partition)
+      self._grub2.install(self.cfg.cur_mbr_device, self.cfg.cur_esp, self.cfg.cur_root_partition)
     elif self.cfg.cur_bootloader == 'elilo':
-      self._elilo.install(self.cfg.cur_mbr_device, self.cfg.cur_boot_partition)
+      self._elilo.install(self.cfg.cur_esp, self.cfg.cur_root_partition)
     elif self.cfg.cur_bootloader == 'gummiboot':
-      self._gummiboot.install(self.cfg.cur_mbr_device, self.cfg.cur_boot_partition)
+      self._gummiboot.install(self.cfg.cur_esp, self.cfg.cur_root_partition)
     self.installation_done()
 
   def installation_done(self):

@@ -15,25 +15,41 @@ import libsalt as slt
 from .efi import EFI
 
 
-class Config:
+class Config(object):
   """
-  Configuration for BootSetup
+  Configuration for BootSetup.
+  Available variables are:
+  - disks  --  list of disks in the system. Format ["device", "format", "name (size)"]
+  - partitions  --  list of partitions in the system. Format ["device", "fs type", "label (size)"]
+  - boot_partitions  --  restricted list of partitions with bootable OS. Determined by os-prober. Format ["device", "fs type", "boot type", "OS", "label"]
+  - efi_firmware  -- true if an EFI firmware has been loaded, thus indicated that the OS has boot in EFI mode.
+  - esp  -- restricted list of ESP partitions. Format ["device", "fs type", "label (size")]
+  - is_test  -- true if in Test Mode.
+  - use_test_data  -- true if some Test Data will be used instead of real system data.
+  - is_live  --  true if in a SaLT Live environment.
+  - target_partition  -- target device (prefixed with /dev/) where the root OS will be (or is) installed.
+  - cur_root_partition  --  target root partition, where to find binaries and /etc config files, determined from target_partition or from /
+  - cur_bootmode  --  bios or efi, efi is available if efi_firmware is true and if esp is not empty
+  - cur_bootloader  --  lilo, grub2, grub2_efi, elilo, gummiboot
+  - cur_mbr_device  --  for bios mode, where to install first stage, determined from cur_root_partition
+  - cur_esp  --  for efi mode, where to install the bootloader efi application, determined from cur_root_partition and esp
+  - secure_boot  --  true if EFI application should be Secure Boot aware.
   """
   disks = []
   partitions = []
   boot_partitions = []
   efi_firmware = False
   esp = []
-  cur_bootmode = None
-  cur_bootloader = None
-  cur_mbr_device = None
-  cur_esp = None
-  cur_root_partition = None  # for binaries and config files
-  secure_boot = False
   is_test = False
   use_test_data = False
+  is_live = False  # true if in a SaLT Live environment.
   target_partition = None
-  is_live = False
+  cur_root_partition = None  # target root partition, where to find binaries and /etc config files, determined from target_partition or from /
+  cur_bootmode = None  # bios or efi, efi is available if /sys/firmware/efi exists and esp is not empty
+  cur_bootloader = None  # lilo, grub2, grub2_efi, elilo, gummiboot
+  cur_mbr_device = None  # for bios mode, where to install first stage, determined from cur_root_partition
+  cur_esp = None  # for efi mode, where to install the bootloader efi application, determined from cur_root_partition and esp
+  secure_boot = False
 
   def __init__(self, is_test, use_test_data, target_partition=None):
     self._efi = EFI(is_test)
@@ -42,11 +58,15 @@ class Config:
     self.target_partition = target_partition
     self._get_current_config()
 
-  def __debug(self, msg):
+  def __debug(self, msg, *args):
     if self.is_test:
-      print("Debug: " + msg)
+      if args:
+        msg = "Debug: {0} {1}".format(msg, " ".join(args))
+      else:
+        msg = "Debug: {0}".format(msg)
+      print(msg)
       with codecs.open("bootsetup.log", "a+", "utf-8") as fdebug:
-        fdebug.write("Debug: {0}\n".format(msg))
+        fdebug.write("{0}\n".format(msg))
 
   def _get_current_config(self):
     print('Gathering current configuration…', end='')
@@ -169,3 +189,21 @@ class Config:
 
   def have_esp(self):
     return bool(self.esp)
+
+  def __str__(self):
+    s = """BootSetup Config
+disks:{disks}
+partitions:{partitions}
+possible boot partitions:{boot_partitions}
+possible efi system partitions:{esp}
+""".format(disks="\n - " + "\n - ".join(map(" ".join, self.disks)), partitions="\n - " + "\n - ".join(map(" ".join, self.partitions)), boot_partitions="\n - " + "\n - ".join(map(" ".join, self.boot_partitions)), esp="\n - " + "\n - ".join(map(" ".join, self.esp)))
+    s += """
+target_partition:{target_partition}
+cur_root_partition:{cur_root_partition}
+cur_bootmode:{cur_bootmode}
+cur_bootloader:{cur_bootloader}
+cur_mbr_device:{cur_mbr_device}
+cur_esp:{cur_esp}
+secure_boot:{secure_boot}
+""".format(target_partition=self.target_partition, cur_root_partition=self.cur_root_partition, cur_bootmode=self.cur_bootmode, cur_bootloader=self.cur_bootloader, cur_mbr_device=self.cur_mbr_device, cur_esp=self.cur_esp, secure_boot=self.secure_boot)
+    return s

@@ -12,7 +12,7 @@ import libsalt as slt
 import pyreadpartitions as pyrp
 
 
-class EFI:
+class EFI(object):
   isTest = False
   _efi_type = "EFI System partition"
 

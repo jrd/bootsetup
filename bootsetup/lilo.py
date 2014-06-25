@@ -17,7 +17,7 @@ from subprocess import CalledProcessError
 from operator import itemgetter
 
 
-class Lilo:
+class Lilo(object):
   isTest = False
   _prefix = None
   _tmp = None
@@ -413,7 +413,7 @@ vga = {vga}
       label = 'text'
     return (mode, label)
 
-  def createConfiguration(self, mbrDevice, bootPartition, partitions):
+  def createConfiguration(self, mbrDevice, efiPartition, bootPartition, partitions):
     """
     partitions format: [device, filesystem, boot type, label]
     """
