@@ -37,7 +37,7 @@ compact
 
 # Boot BMP Image.
 # Bitmap in BMP format: 640x480x8
-bitmap = {mp}/boot/salix.bmp
+bitmap = {mp}boot/salix.bmp
 # Menu colors (foreground, background, shadow, highlighted
 # foreground, highlighted background, highlighted shadow):
 bmp-colors = 255,20,255,20,255,20
@@ -231,8 +231,8 @@ vga = {vga}
     """
     sections = []
     self.__debug("Section 'linux' for", device, "/", fs, "mounted on", mp, "with label:", label)
-    kernelList = sorted(glob.glob("{mp}/boot/vmlinuz*".format(mp=mp)))
-    initrdList = sorted(glob.glob("{mp}/boot/initr*".format(mp=mp)))
+    kernelList = sorted(glob.glob(os.path.realpath("{mp}/boot/vmlinuz*".format(mp=mp))))
+    initrdList = sorted(glob.glob(os.path.realpath("{mp}/boot/initr*".format(mp=mp))))
     for l in (kernelList, initrdList):
       for el in l:
         if os.path.isdir(el) or os.path.islink(el):
@@ -241,7 +241,7 @@ vga = {vga}
     self.__debug("initrdList:", unicode(initrdList))
     uuid = slt.execGetOutput(['/sbin/blkid', '-s', 'UUID', '-o', 'value', device], shell=False)
     if uuid:
-      rootDevice = "/dev/disk/by-uuid/{uuid}".format(uuid=uuid[0])
+      rootDevice = '"UUID={uuid}"'.format(uuid=uuid[0])
     else:
       rootDevice = device
     self.__debug("rootDevice =", rootDevice)
@@ -418,7 +418,7 @@ vga = {vga}
     partitions format: [device, filesystem, boot type, label]
     """
     self._mbrDevice = os.path.join("/dev", mbrDevice)
-    self._bootPartition = os.path.join("/dev", bootPartition)
+    self._bootPartition = os.path.realpath(os.path.join("/dev", bootPartition))
     self._partitions = partitions
     self._bootsMounted = []
     self.__debug("partitions:", unicode(self._partitions))
@@ -437,7 +437,7 @@ vga = {vga}
       (fb, fbLabel) = self._getFrameBufferConf()
       self.__debug("frame buffer mode =", unicode(fb), unicode(fbLabel))
       f = open(self.getConfigurationPath(), "w")
-      f.write(self._cfgTemplate.format(boot=self._mbrDevice, mp=mp, vga="{0} # {1}".format(fb, fbLabel)))
+      f.write(self._cfgTemplate.format(boot=self._mbrDevice, mp=os.path.realpath(mp + '/'), vga="{0} # {1}".format(fb, fbLabel)))
       for s in liloSections:
         f.write(s)
         f.write("\n")

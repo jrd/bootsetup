@@ -63,6 +63,7 @@ class Grub2(EFIBoot):
 
   @staticmethod
   def is_grub2_available(root_partition):
+    return False  # TODO disabled for salix live alpha
     grub2config = Grub2.checkout_grub2_config(root_partition)
     if grub2config:
       Grub2.release_grub2_config(grub2config)

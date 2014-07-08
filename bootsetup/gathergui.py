@@ -235,8 +235,8 @@ a boot menu if several operating systems are available on the same computer.")
     if pageName:
       nextPage = self.navigation[pageName][1]
     else:  # the first page is one that does not have previous page
-      for page, info in self.navigation.iteritems():
-        (prevPage, _) = info
+      for page, info in self.navigation.items():
+        prevPage = info[0]
         if prevPage is None:
           nextPage = page
           break
@@ -325,12 +325,18 @@ a boot menu if several operating systems are available on the same computer.")
     elif self.wizard_page == 'EFIGrub2':
       pass
     elif self.wizard_page == 'Summary':
-      self.installSummary.set_text('TODO')  # TODO
+      s = '<b>Boot mode:</b> {mode}\t<b>Bootloader:</b> {bootloader}'.format(mode=self.cfg.cur_bootmode, bootloader=self.cfg.cur_bootloader)
+      if self.cfg.cur_bootloader == 'lilo':
+        s += '\n<b>Target disk:</b> {disk}\t<b>Root partition:</b> {root}'.format(disk=self.cfg.cur_mbr_device, root=self.cfg.cur_root_partition)
+        s += '\n\n<b>Menu:</b>'
+        for part in self._get_boot_partitions():
+          (dev, fs, t, label) = part
+          s += '\n- {dev} ({fs}, {t}) => {label}'.format(dev=dev, fs=fs, t=t, label=label)
+      self.installSummary.set_markup(s)
 
   def wizard_update_buttons(self):
     nextOk = self.wizard_validate_page()
     self.nextButton.set_sensitive(nextOk)
-    self.installButton.set_sensitive(nextOk)
 
   def wizard_validate_page(self):
     if self._editing:
@@ -350,7 +356,7 @@ a boot menu if several operating systems are available on the same computer.")
       root_ok = bool(self.cfg.cur_root_partition) and os.path.exists(os.path.join(os.path.sep, 'dev', self.cfg.cur_root_partition)) and bool(slt.getPartitionInfo(self.cfg.cur_root_partition))
       return esp_ok and root_ok
     elif self.wizard_page == 'Summary':
-      return False  # TODO
+      return True
 
   def on_bootmode_clicked(self, widget, data=None):
     if widget.get_active():
@@ -470,7 +476,7 @@ a boot menu if several operating systems are available on the same computer.")
       return
     model.swap(iter1, iter2)
 
-  def _create_boot_config(self):
+  def _get_boot_partitions(self):
     partitions = []
     for row in self.bootPartitionListStore:
       p = list(row)
@@ -484,17 +490,23 @@ a boot menu if several operating systems are available on the same computer.")
             break
         label = p[3]
         partitions.append([dev, fs, t, label])
+    return partitions
+
+  def _create_boot_config(self):
+    partitions = self._get_boot_partitions()
     self._bootloader.createConfiguration(self.cfg.cur_mbr_device, self.cfg.cur_esp, self.cfg.cur_root_partition, partitions)
 
   def _edit_file(self, filename):
     launched = False
     for editor in ('leafpad', 'gedit', 'geany', 'kate', 'xterm -e nano'):
       try:
-        cmd = editor.split(' ').append(filename)
+        cmd = editor.split(' ')
+        cmd.append(filename)
         slt.execCall(cmd, shell=True, env=None)
         launched = True
         break
-      except:
+      except Exception as e:
+        print(e)
         pass
     return launched
 
@@ -630,24 +642,24 @@ a boot menu if several operating systems are available on the same computer.")
     self.Grub2BiosEditButton.set_sensitive(grub2_edit_ok)
     self.ExecuteButton.set_sensitive(not self._editing and install_ok)
 
-  def on_execute_button_clicked(self, widget, data=None):
+  def on_button_install_clicked(self, widget, data=None):
     if self.cfg.cur_bootloader == 'lilo':
-      if not os.path.exists(self._lilo.getConfigurationPath()):
+      if not os.path.exists(self._bootloader.getConfigurationPath()):
         self._create_boot_config()
-      self._lilo.install()
+      self._bootloader.install()
     elif self.cfg.cur_bootloader == 'grub2':
-      self._grub2.install(self.cfg.cur_mbr_device, self.cfg.cur_esp, self.cfg.cur_root_partition)
+      self._bootloader.install(self.cfg.cur_mbr_device, self.cfg.cur_esp, self.cfg.cur_root_partition)
     elif self.cfg.cur_bootloader == 'elilo':
-      self._elilo.install(self.cfg.cur_esp, self.cfg.cur_root_partition)
+      self._bootloader.install(self.cfg.cur_esp, self.cfg.cur_root_partition)
     elif self.cfg.cur_bootloader == 'gummiboot':
-      self._gummiboot.install(self.cfg.cur_esp, self.cfg.cur_root_partition)
+      self._bootloader.install(self.cfg.cur_esp, self.cfg.cur_root_partition)
     self.installation_done()
 
   def installation_done(self):
     print("Bootloader Installation Done.")
     msg = "<b>{0}</b>".format(_("Bootloader installation process completed."))
     self._bootsetup.info_dialog(msg)
-    self.gtk_main_quit(self.Window)
+    self.gtk_main_quit(self.wizard)
 
   # General contextual help
   def on_leave_notify_event(self, widget, data=None):

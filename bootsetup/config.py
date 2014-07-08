@@ -154,6 +154,7 @@ class Config(object):
           probe_fstype = ''
         self.boot_partitions.append([probe_dev, probe_fstype, probe_boottype, probe_os, probe_label])
       self.efi_firmware = self._efi.has_efi_firmware()
+      self.efi_firmware = False  # TODO disabled for salix live alpha
       for esp in self._efi.find_efi_partitions():
         esp = esp.replace('/dev/', '')
         # reuse information from self.partitions to complete the list
@@ -163,6 +164,7 @@ class Config(object):
             break
         else:
           self.esp.append([esp, '', ''])
+      self.esp = []  # TODO disabled for salix live alpha
       self.secure_boot = self.efi_firmware and bool(self.esp)
       # guess cur_root_partition, cur_mbr_device and cur_esp from target_partition argument or environment.
       if self.is_live:
