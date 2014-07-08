@@ -437,7 +437,10 @@ vga = {vga}
       (fb, fbLabel) = self._getFrameBufferConf()
       self.__debug("frame buffer mode =", unicode(fb), unicode(fbLabel))
       f = open(self.getConfigurationPath(), "w")
-      f.write(self._cfgTemplate.format(boot=self._mbrDevice, mp=os.path.realpath(mp + '/'), vga="{0} # {1}".format(fb, fbLabel)))
+      canonicalMP = mp + '/'
+      if canonicalMP == '//':
+        canonicalMP = '/'
+      f.write(self._cfgTemplate.format(boot=self._mbrDevice, mp=canonicalMP, vga="{0} # {1}".format(fb, fbLabel)))
       for s in liloSections:
         f.write(s)
         f.write("\n")
